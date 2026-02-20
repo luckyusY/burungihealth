@@ -297,19 +297,20 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
     const tagFirstWord = tokenize(tagName)[0] || "";
     const locationFirstWord = tokenize(locationName)[0] || "";
 
-    // Hard failures — always reject regardless of attempt
+    // Hard failures — only truly broken articles (almost never fires for a real GPT response)
     const hardReasons = [];
-    if (words.length < 100 || words.length > 420) hardReasons.push("word_count");
-    if (sentenceLengths.length < 2) hardReasons.push("too_few_sentences");
-    if (whatsappCount < 1) hardReasons.push("whatsapp_count");
+    if (words.length < 60) hardReasons.push("too_short");
 
-    // Soft failures — retry on early attempts, accept on final attempt
+    // Soft failures — trigger a retry on early attempts, accepted on final attempt
     const softReasons = [];
-    if (uniqueRatio < 0.28) softReasons.push("low_lexical_diversity");
+    if (words.length > 420) softReasons.push("too_long");
+    if (sentenceLengths.length < 2) softReasons.push("too_few_sentences");
+    if (uniqueRatio < 0.25) softReasons.push("low_lexical_diversity");
     if (fillerFound) softReasons.push(`filler_phrase:${fillerFound}`);
     if (productFirstWord && !normalized.includes(productFirstWord)) softReasons.push("missing_product");
     if (tagFirstWord && !normalized.includes(tagFirstWord)) softReasons.push("missing_tag");
     if (locationFirstWord && !normalized.includes(locationFirstWord)) softReasons.push("missing_location");
+    if (whatsappCount < 1) softReasons.push("whatsapp_count");
     if (phoneCount < 1) softReasons.push("phone_count");
 
     return {
@@ -680,10 +681,11 @@ export async function POST(request) {
                 });
 
                 const isLastAttempt = attempt >= MAX_ATTEMPTS_PER_STORY - 1;
-                // On the last attempt only hard quality failures (too short, no WhatsApp) block acceptance
+                // On the last attempt only hard quality failures block acceptance
                 const qualityBlock = isLastAttempt ? !quality.hardOk : !quality.ok;
+                // Duplicate openings/endings are soft-only — they cause a retry but never a hard block
                 const softReject = sim3 >= 0.6 || sim4 >= 0.45 || openingDuplicate || endingDuplicate || qualityBlock;
-                const hardReject = sim3 >= 0.65 || sim4 >= 0.5 || openingDuplicate || endingDuplicate || qualityBlock;
+                const hardReject = sim3 >= 0.65 || sim4 >= 0.5 || qualityBlock;
 
                 if (softReject && !isLastAttempt) continue;
                 if (hardReject) continue;
@@ -729,8 +731,9 @@ export async function POST(request) {
                 if (storyBank.endingHints.length < 5) storyBank.endingHints.push(generatedEnding);
             }
 
-            remaining = hasMoreAfterTarget ? 1 : 0;
-            if (!hasMoreAfterTarget) break;
+            // If skipped slugs exist they still need generating — don't signal "done" prematurely
+            remaining = (hasMoreAfterTarget || skippedSlugs.size > 0) ? 1 : 0;
+            if (!hasMoreAfterTarget && skippedSlugs.size === 0) break;
         }
 
         return new Response(
