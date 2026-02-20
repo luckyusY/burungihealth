@@ -4,28 +4,33 @@ export async function generateCategoryCombos() {
     const paths = [];
 
     // Fetch the 4 independent dimension tables
-    const { data: departments } = await supabase.from('departments').select('slug');
-    const { data: categories } = await supabase.from('categories').select('slug');
+    const { data: departments } = await supabase.from('departments').select('id, slug');
+    const { data: categories } = await supabase.from('categories').select('id, slug, department_id');
     const { data: tags } = await supabase.from('tags').select('slug');
     const { data: locations } = await supabase.from('locations').select('slug');
 
-    if (!departments || !categories || !tags || !locations) return paths;
+    if (!departments || !categories || !tags || !locations) return [];
 
-    // Generate permutations: /rw/[department]/[category]/[tag]-in-[location]
-    // Example: /rw/mens-health/amavuta/kurangiza-vuba-in-kigali
-    for (const dept of departments) {
-        for (const cat of categories) {
-            for (const tag of tags) {
-                for (const loc of locations) {
-                    paths.push({
-                        // Currently generating URLs directly.
-                        slug: `${dept.slug}-${cat.slug}-${tag.slug}-in-${loc.slug}`
+    const combos = [];
+    departments.forEach(dept => {
+        const deptCats = categories.filter(c => c.department_id === dept.id);
+
+        deptCats.forEach(cat => {
+            tags.forEach(tag => {
+                locations.forEach(loc => {
+                    combos.push({
+                        slug: `${dept.slug}---${cat.slug}---${tag.slug}-in-${loc.slug}`,
+                        dept: dept.slug,
+                        cat: cat.slug,
+                        tag: tag.slug,
+                        loc: loc.slug
                     });
-                }
-            }
-        }
-    }
-    return paths;
+                });
+            });
+        });
+    });
+
+    return combos;
 }
 
 export async function getComboData(comboSlug) {
@@ -35,16 +40,13 @@ export async function getComboData(comboSlug) {
 
     const locationSlug = parts[1];
 
-    // Split the first half: [dept]-[cat]-[tag]
-    const rootParts = parts[0].split('-');
-    if (rootParts.length < 3) return null;
+    // Split the first half: [dept]---[cat]---[tag]
+    const mainParts = parts[0].split('---');
+    if (mainParts.length < 3) return null;
 
-    // This simple split assumes slugs don't easily conflict with dashes, 
-    // but a more robust router would use actual path segments e.g. /dept/cat/tag 
-    // For this prototype we will approximate extraction:
-    const tagSlug = rootParts.pop();
-    const categorySlug = rootParts.pop();
-    const deptSlug = rootParts.join('-');
+    const deptSlug = mainParts[0];
+    const categorySlug = mainParts[1];
+    const tagSlug = mainParts[2];
 
     // Fetch the specific dimensions and the unique AI article from the DB
     const [deptReq, catReq, tagReq, locReq, articleReq] = await Promise.all([
