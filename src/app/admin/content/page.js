@@ -164,6 +164,19 @@ export default function AdminDashboard() {
         setProductGenState(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), selectedTagIds: next } }));
     }
 
+    function getSelectedLocationIds(productId) {
+        const state = productGenState[productId];
+        if (!state || !state.selectedLocationIds) return locations.map(l => String(l.id));
+        return state.selectedLocationIds;
+    }
+
+    function toggleProductLocation(productId, locationId) {
+        const current = getSelectedLocationIds(productId);
+        const id = String(locationId);
+        const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
+        setProductGenState(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), selectedLocationIds: next } }));
+    }
+
     function setProductStatus(productId, status) {
         setProductGenState(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), status } }));
     }
@@ -171,7 +184,9 @@ export default function AdminDashboard() {
     async function triggerProductAI(product) {
         const deptTags = getProductDeptTags(product);
         const selectedTagIds = getSelectedTagIds(product.id, deptTags);
+        const selectedLocationIds = getSelectedLocationIds(product.id);
         if (selectedTagIds.length === 0) { alert('Select at least one keyword first.'); return; }
+        if (selectedLocationIds.length === 0) { alert('Select at least one location first.'); return; }
         if (!product.slug) { alert('This product needs a slug before generating articles.'); return; }
 
         let total = 0;
@@ -182,7 +197,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 3, productId: product.id, tagIds: selectedTagIds })
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 3, productId: product.id, tagIds: selectedTagIds, locationIds: selectedLocationIds })
                 });
                 if (!res.ok) {
                     const text = await res.text();
@@ -604,6 +619,7 @@ export default function AdminDashboard() {
                                 {(() => {
                                     const deptTags = getProductDeptTags(product);
                                     const selectedTagIds = getSelectedTagIds(product.id, deptTags);
+                                    const selectedLocationIds = getSelectedLocationIds(product.id);
                                     const pState = productGenState[product.id];
                                     const isGenerating = pState?.status && !pState.status.startsWith('✓') && !pState.status.startsWith('✗');
                                     return (
@@ -617,24 +633,45 @@ export default function AdminDashboard() {
                                                 <p style={{ fontSize: '0.78rem', color: '#888' }}>No keywords found for this product's department. Assign the product to a category that has a department, and add keywords to that department in the SEO Data tab.</p>
                                             ) : (
                                                 <>
-                                                    <p style={{ fontSize: '0.74rem', color: '#888', marginBottom: '0.5rem' }}>
-                                                        Select keywords to generate for × {locations.length} location{locations.length !== 1 ? 's' : ''}:
-                                                    </p>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                                                        {deptTags.map(tag => {
-                                                            const isSelected = selectedTagIds.includes(String(tag.id));
-                                                            return (
-                                                                <label key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.76rem', background: isSelected ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isSelected ? 'rgba(212,175,55,0.45)' : 'rgba(255,255,255,0.1)'}`, padding: '0.22rem 0.55rem', borderRadius: '4px', userSelect: 'none' }}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={isSelected}
-                                                                        onChange={() => toggleProductTag(product.id, tag.id, deptTags)}
-                                                                        style={{ width: 'auto', margin: 0 }}
-                                                                    />
-                                                                    {tag.name}
-                                                                </label>
-                                                            );
-                                                        })}
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.75rem' }}>
+                                                        {/* Keywords column */}
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                                                                <p style={{ fontSize: '0.74rem', color: '#d4af37', fontWeight: 600, margin: 0 }}>Keywords</p>
+                                                                <button onClick={() => setProductGenState(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || {}), selectedTagIds: deptTags.map(t => String(t.id)) } }))} style={{ fontSize: '0.68rem', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>All</button>
+                                                                <button onClick={() => setProductGenState(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || {}), selectedTagIds: [] } }))} style={{ fontSize: '0.68rem', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>None</button>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                                                {deptTags.map(tag => {
+                                                                    const isSelected = selectedTagIds.includes(String(tag.id));
+                                                                    return (
+                                                                        <label key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.74rem', background: isSelected ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isSelected ? 'rgba(212,175,55,0.45)' : 'rgba(255,255,255,0.1)'}`, padding: '0.2rem 0.5rem', borderRadius: '4px', userSelect: 'none' }}>
+                                                                            <input type="checkbox" checked={isSelected} onChange={() => toggleProductTag(product.id, tag.id, deptTags)} style={{ width: 'auto', margin: 0 }} />
+                                                                            {tag.name}
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                        {/* Locations column */}
+                                                        <div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                                                                <p style={{ fontSize: '0.74rem', color: '#64b4ff', fontWeight: 600, margin: 0 }}>Locations</p>
+                                                                <button onClick={() => setProductGenState(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || {}), selectedLocationIds: locations.map(l => String(l.id)) } }))} style={{ fontSize: '0.68rem', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>All</button>
+                                                                <button onClick={() => setProductGenState(prev => ({ ...prev, [product.id]: { ...(prev[product.id] || {}), selectedLocationIds: [] } }))} style={{ fontSize: '0.68rem', color: '#888', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>None</button>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                                                                {locations.map(loc => {
+                                                                    const isSelected = selectedLocationIds.includes(String(loc.id));
+                                                                    return (
+                                                                        <label key={loc.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.74rem', background: isSelected ? 'rgba(100,180,255,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isSelected ? 'rgba(100,180,255,0.4)' : 'rgba(255,255,255,0.1)'}`, padding: '0.2rem 0.5rem', borderRadius: '4px', userSelect: 'none' }}>
+                                                                            <input type="checkbox" checked={isSelected} onChange={() => toggleProductLocation(product.id, loc.id)} style={{ width: 'auto', margin: 0 }} />
+                                                                            {loc.name}
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                                                         <button
@@ -643,7 +680,7 @@ export default function AdminDashboard() {
                                                             disabled={isGenerating}
                                                             style={{ padding: '0.4rem 1rem', fontSize: '0.82rem' }}
                                                         >
-                                                            {isGenerating ? '⏳ Generating...' : `✦ Generate (${selectedTagIds.length} keywords × ${locations.length} locations)`}
+                                                            {isGenerating ? '⏳ Generating...' : `✦ Generate (${selectedTagIds.length} keywords × ${selectedLocationIds.length} locations)`}
                                                         </button>
                                                         {pState?.status && (
                                                             <span style={{ fontSize: '0.78rem', color: pState.status.startsWith('✓') ? '#4caf50' : pState.status.startsWith('✗') ? '#e57373' : '#d4af37' }}>

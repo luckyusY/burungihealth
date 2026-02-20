@@ -26,6 +26,7 @@ export async function POST(request) {
         const BATCH_LIMIT = body.limit || 3;
         const filterProductId = body.productId || null;
         const filterTagIds = body.tagIds ? new Set(body.tagIds.map(String)) : null;
+        const filterLocationIds = body.locationIds ? new Set(body.locationIds.map(String)) : null;
 
         const { data: departments } = await supabase.from('departments').select('*');
         const { data: categories } = await supabase.from('categories').select('*');
@@ -58,13 +59,14 @@ export async function POST(request) {
             if (!cat || !dept) continue;
 
             const deptTags = tags.filter(t => {
-                if (t.department_id !== dept.id) return false;
+                if (String(t.department_id) !== String(dept.id)) return false;
                 if (filterTagIds && !filterTagIds.has(String(t.id))) return false;
                 return true;
             });
 
             for (const tag of deptTags) {
                 for (const loc of locations) {
+                    if (filterLocationIds && !filterLocationIds.has(String(loc.id))) continue;
                     const slug = `${dept.slug}---${cat.slug}---${product.slug}---${tag.slug}-in-${loc.slug}`;
                     if (existingSet.has(slug)) continue;
 
