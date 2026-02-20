@@ -4,33 +4,70 @@ import OpenAI from "openai";
 export const maxDuration = 60;
 
 const STORY_OPENINGS = [
-    "Start with a moment of frustration from daily life before naming the problem.",
-    "Open with a direct question someone in this location might ask a friend.",
-    "Begin with a short myth-versus-reality line about the condition.",
-    "Start with a mini scene of relief after finding the right solution.",
-    "Open with a practical observation from pharmacists and repeat buyers.",
-    "Start with one bold sentence about confidence and relationships.",
+    "Start with a real-life frustration moment before naming the problem.",
+    "Open with a direct question someone in this location would ask a close friend.",
+    "Begin with a brief myth-versus-reality line.",
+    "Start with a small turning-point moment that feels personal.",
+    "Open with a practical observation from repeat buyers.",
+    "Start with one emotionally honest sentence about confidence.",
 ];
 
 const STORY_NARRATORS = [
-    "second person guidance",
-    "trusted advisor voice",
-    "first person testimonial voice",
-    "community recommendation tone",
+    "second-person supportive coach",
+    "trusted local advisor",
+    "first-person lived-experience voice",
+    "friend-to-friend recommendation voice",
+    "pharmacy-counter conversational voice",
 ];
 
 const STORY_RHYTHMS = [
-    "short punchy sentences, then one reflective long sentence",
-    "balanced medium-length conversational sentences",
-    "storytelling first half, practical actionable second half",
-    "educational first, emotionally reassuring finish",
+    "mix short punchy lines with a few long reflective lines",
+    "mostly medium conversational lines with one short emphasis line per paragraph",
+    "story-driven first half, practical second half",
+    "explain first, reassure second, close with clear action",
 ];
 
 const STORY_CTA_STYLES = [
-    "confident and urgent",
-    "warm and reassuring",
+    "gentle and reassuring",
     "clear and practical",
-    "social-proof driven",
+    "confident with social proof",
+    "direct but respectful",
+];
+
+const STORY_SCENES = [
+    "morning routine stress before work",
+    "quiet evening conversation with a partner",
+    "weekend plans affected by low confidence",
+    "a busy day in town with constant self-doubt",
+    "private concern discussed over a call with a friend",
+];
+
+const STORY_PROOF_STYLES = [
+    "mention practical buying behavior and repeat orders",
+    "mention what users notice after consistent use",
+    "mention a realistic timeline and daily discipline",
+    "mention why common quick fixes often fail",
+    "mention the value of discreet delivery and support",
+];
+
+const STORY_CLOSINGS = [
+    "close with calm confidence and next step",
+    "close with practical ordering instructions",
+    "close by reducing hesitation and offering support",
+    "close with one line about privacy and speed",
+];
+
+const BANNED_FILLER_PHRASES = [
+    "in today's fast paced world",
+    "it is important to note that",
+    "when it comes to",
+    "at the end of the day",
+    "without further ado",
+    "as we all know",
+    "whether you are",
+    "unlock your full potential",
+    "game changer",
+    "revolutionary solution",
 ];
 
 function hashString(value) {
@@ -49,8 +86,8 @@ function pick(list, seed, offset = 0) {
 
 function buildStoryProfile(slug, attempt) {
     const seed = hashString(`${slug}:${attempt}`);
-    const wordCount = 190 + (seed % 61); // 190-250 words
-    const temperature = Number((0.82 + ((seed % 21) / 100)).toFixed(2)); // 0.82-1.02
+    const wordCount = 185 + (seed % 71); // 185-255 words
+    const temperature = Number((0.84 + ((seed % 19) / 100)).toFixed(2)); // 0.84-1.02
 
     return {
         signature: `story-${seed.toString(36).slice(-7)}`,
@@ -60,6 +97,9 @@ function buildStoryProfile(slug, attempt) {
         narrator: pick(STORY_NARRATORS, seed, 2),
         rhythm: pick(STORY_RHYTHMS, seed, 3),
         ctaStyle: pick(STORY_CTA_STYLES, seed, 4),
+        scene: pick(STORY_SCENES, seed, 5),
+        proofStyle: pick(STORY_PROOF_STYLES, seed, 6),
+        closing: pick(STORY_CLOSINGS, seed, 7),
     };
 }
 
@@ -71,8 +111,12 @@ function normalizeText(text) {
         .trim();
 }
 
+function tokenize(text) {
+    return normalizeText(text).split(" ").filter(Boolean);
+}
+
 function toShingleSet(text, size = 3) {
-    const words = normalizeText(text).split(" ").filter(Boolean);
+    const words = tokenize(text);
     const set = new Set();
 
     if (words.length <= size) {
@@ -99,33 +143,6 @@ function jaccardSimilarity(a, b) {
     return union > 0 ? intersection / union : 0;
 }
 
-function openingFingerprint(text) {
-    const clean = normalizeText(text);
-    if (!clean) return "";
-    return clean.split(" ").slice(0, 14).join(" ");
-}
-
-function createStoryBank(contents) {
-    const fingerprints = [];
-    const openings = new Set();
-    const openingHints = [];
-
-    for (const content of contents || []) {
-        if (!content) continue;
-        fingerprints.push(toShingleSet(content, 3));
-
-        const opening = openingFingerprint(content);
-        if (opening) {
-            openings.add(opening);
-            if (openingHints.length < 5) {
-                openingHints.push(opening);
-            }
-        }
-    }
-
-    return { fingerprints, openings, openingHints };
-}
-
 function maxSimilarity(candidateSet, fingerprintBank) {
     let max = 0;
     for (const existingSet of fingerprintBank) {
@@ -133,6 +150,138 @@ function maxSimilarity(candidateSet, fingerprintBank) {
         if (score > max) max = score;
     }
     return max;
+}
+
+function openingFingerprint(text) {
+    const words = tokenize(text);
+    return words.slice(0, 14).join(" ");
+}
+
+function endingFingerprint(text) {
+    const words = tokenize(text);
+    return words.slice(Math.max(0, words.length - 14)).join(" ");
+}
+
+function extractRepeatedPhrases(contents, phraseSize = 3, minCount = 2, limit = 8) {
+    const counts = new Map();
+
+    for (const content of contents || []) {
+        const words = tokenize(content);
+        if (words.length < phraseSize) continue;
+
+        const seenInDoc = new Set();
+        for (let i = 0; i <= words.length - phraseSize; i++) {
+            const phrase = words.slice(i, i + phraseSize).join(" ");
+            if (seenInDoc.has(phrase)) continue;
+            seenInDoc.add(phrase);
+            counts.set(phrase, (counts.get(phrase) || 0) + 1);
+        }
+    }
+
+    return [...counts.entries()]
+        .filter(([, count]) => count >= minCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([phrase]) => phrase);
+}
+
+function splitSentences(text) {
+    return (text || "")
+        .split(/(?<=[.!?])\s+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+}
+
+function countMatches(text, regex) {
+    return (text.match(regex) || []).length;
+}
+
+function containsPhrase(normalizedText, phrase) {
+    const normalizedPhrase = normalizeText(phrase);
+    if (!normalizedPhrase) return false;
+    return normalizedText.includes(normalizedPhrase);
+}
+
+function evaluateHumanQuality({ text, tagName, locationName, productName }) {
+    const normalized = normalizeText(text);
+    const words = tokenize(text);
+    const sentences = splitSentences(text);
+    const sentenceLengths = sentences
+        .map((sentence) => tokenize(sentence).length)
+        .filter(Boolean);
+
+    const uniqueRatio = words.length ? new Set(words).size / words.length : 0;
+    const shortSentenceCount = sentenceLengths.filter((len) => len <= 9).length;
+    const longSentenceCount = sentenceLengths.filter((len) => len >= 18).length;
+
+    const fillerFound = BANNED_FILLER_PHRASES.find((phrase) => normalized.includes(phrase));
+    const whatsappCount = countMatches(text.toLowerCase(), /whatsapp/g);
+    const phoneCount = countMatches(text, /\+?\s*250[\s-]*798[\s-]*707[\s-]*702/g);
+
+    const reasons = [];
+
+    if (words.length < 170 || words.length > 290) reasons.push("word_count");
+    if (sentenceLengths.length < 5) reasons.push("too_few_sentences");
+    if (uniqueRatio < 0.45) reasons.push("low_lexical_diversity");
+    if (shortSentenceCount < 1 || longSentenceCount < 1) reasons.push("flat_sentence_shape");
+    if (fillerFound) reasons.push(`filler_phrase:${fillerFound}`);
+    if (!containsPhrase(normalized, productName)) reasons.push("missing_product");
+    if (!containsPhrase(normalized, tagName)) reasons.push("missing_tag");
+    if (!containsPhrase(normalized, locationName)) reasons.push("missing_location");
+    if (whatsappCount !== 1) reasons.push("whatsapp_count");
+    if (phoneCount !== 1) reasons.push("phone_count");
+
+    return {
+        ok: reasons.length === 0,
+        reasons,
+        metrics: {
+            words: words.length,
+            sentences: sentenceLengths.length,
+            uniqueRatio,
+            shortSentenceCount,
+            longSentenceCount,
+        },
+    };
+}
+
+function createStoryBank(contents) {
+    const fingerprints3 = [];
+    const fingerprints4 = [];
+    const openings = new Set();
+    const endings = new Set();
+    const openingHints = [];
+    const endingHints = [];
+
+    for (const content of contents || []) {
+        if (!content) continue;
+
+        fingerprints3.push(toShingleSet(content, 3));
+        fingerprints4.push(toShingleSet(content, 4));
+
+        const opening = openingFingerprint(content);
+        const ending = endingFingerprint(content);
+
+        if (opening) {
+            openings.add(opening);
+            if (openingHints.length < 5) openingHints.push(opening);
+        }
+        if (ending) {
+            endings.add(ending);
+            if (endingHints.length < 5) endingHints.push(ending);
+        }
+    }
+
+    const repeatedPhrases = extractRepeatedPhrases(contents, 3, 2, 8);
+
+    return {
+        fingerprints3,
+        fingerprints4,
+        openings,
+        endings,
+        openingHints,
+        endingHints,
+        repeatedPhrases,
+    };
 }
 
 export async function POST(request) {
@@ -198,9 +347,10 @@ export async function POST(request) {
                 .from("seo_articles")
                 .select("content")
                 .ilike("slug", `%---${product.slug}---%`)
-                .limit(40);
+                .limit(60);
 
-            const storyBank = createStoryBank((productArticles || []).map((row) => row.content));
+            const productContents = (productArticles || []).map((row) => row.content).filter(Boolean);
+            const storyBank = createStoryBank(productContents);
 
             const deptTags = tags.filter((tag) => {
                 if (String(tag.department_id) !== String(dept.id)) return false;
@@ -221,25 +371,38 @@ export async function POST(request) {
                     }
 
                     let generatedText = "";
-                    let generatedFingerprint = null;
+                    let generatedSet3 = null;
+                    let generatedSet4 = null;
                     let generatedOpening = "";
+                    let generatedEnding = "";
 
-                    for (let attempt = 0; attempt < 3; attempt++) {
+                    for (let attempt = 0; attempt < 5; attempt++) {
                         const profile = buildStoryProfile(slug, attempt);
                         const blockedOpenings = storyBank.openingHints.length
                             ? storyBank.openingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
+                            : "None yet.";
+
+                        const blockedEndings = storyBank.endingHints.length
+                            ? storyBank.endingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
+                            : "None yet.";
+
+                        const avoidPhrases = storyBank.repeatedPhrases.length
+                            ? storyBank.repeatedPhrases.join(", ")
                             : "None yet.";
 
                         const productContext = product.ai_context
                             ? `Product: ${product.name}. ${product.ai_context}`
                             : `Product: ${product.name}.`;
 
-                        const prompt = `Write a ${profile.wordCount}-word SEO article for BurungiHealth, a Rwandan health product store. Plain paragraphs only: no headings, no bullet points, no markdown.\n\nProduct: ${product.name}\nKeyword/problem: \"${tag.name}\"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\n\nAvoid reusing these opening fingerprints from previous stories:\n${blockedOpenings}\n\nStrict rules:\n- Do not start the article with the product name\n- Mention fast, discreet WhatsApp delivery (+250 798 707 702) once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Include concrete local context for ${loc.name}, not generic filler\n- Keep claims responsible and avoid exaggerated medical promises\n\nProduct details:\n${productContext}`;
+                        const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${product.name}\nKeyword/problem: \"${tag.name}\"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp exactly once and include +250 798 707 702 exactly once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
 
                         const response = await openai.chat.completions.create({
                             model: "gpt-4o-mini",
                             messages: [
-                                { role: "system", content: "You write high-converting SEO stories that are clearly distinct from each other." },
+                                {
+                                    role: "system",
+                                    content: "You write human-sounding local SEO stories with high variation and no templated AI phrasing.",
+                                },
                                 { role: "user", content: prompt },
                             ],
                             temperature: profile.temperature,
@@ -248,24 +411,39 @@ export async function POST(request) {
                         const candidate = response.choices[0]?.message?.content?.trim();
                         if (!candidate) continue;
 
-                        const candidateFingerprint = toShingleSet(candidate, 3);
+                        const candidateSet3 = toShingleSet(candidate, 3);
+                        const candidateSet4 = toShingleSet(candidate, 4);
                         const candidateOpening = openingFingerprint(candidate);
+                        const candidateEnding = endingFingerprint(candidate);
 
-                        const similarity = maxSimilarity(candidateFingerprint, storyBank.fingerprints);
+                        const sim3 = maxSimilarity(candidateSet3, storyBank.fingerprints3);
+                        const sim4 = maxSimilarity(candidateSet4, storyBank.fingerprints4);
                         const openingDuplicate = candidateOpening && storyBank.openings.has(candidateOpening);
+                        const endingDuplicate = candidateEnding && storyBank.endings.has(candidateEnding);
+                        const quality = evaluateHumanQuality({
+                            text: candidate,
+                            tagName: tag.name,
+                            locationName: loc.name,
+                            productName: product.name,
+                        });
 
-                        if ((similarity >= 0.58 || openingDuplicate) && attempt < 2) {
+                        const softReject = sim3 >= 0.53 || sim4 >= 0.37 || openingDuplicate || endingDuplicate || !quality.ok;
+                        const hardReject = sim3 >= 0.57 || sim4 >= 0.41 || openingDuplicate || endingDuplicate || !quality.ok;
+
+                        if (softReject && attempt < 4) {
                             continue;
                         }
 
-                        if (similarity >= 0.62 || openingDuplicate) {
+                        if (hardReject) {
                             generatedText = "";
                             break;
                         }
 
                         generatedText = candidate;
-                        generatedFingerprint = candidateFingerprint;
+                        generatedSet3 = candidateSet3;
+                        generatedSet4 = candidateSet4;
                         generatedOpening = candidateOpening;
+                        generatedEnding = candidateEnding;
                         break;
                     }
 
@@ -288,14 +466,18 @@ export async function POST(request) {
 
                     existingSet.add(slug);
                     totalGenerated++;
-                    if (generatedFingerprint) {
-                        storyBank.fingerprints.push(generatedFingerprint);
-                    }
+
+                    if (generatedSet3) storyBank.fingerprints3.push(generatedSet3);
+                    if (generatedSet4) storyBank.fingerprints4.push(generatedSet4);
+
                     if (generatedOpening) {
                         storyBank.openings.add(generatedOpening);
-                        if (storyBank.openingHints.length < 5) {
-                            storyBank.openingHints.push(generatedOpening);
-                        }
+                        if (storyBank.openingHints.length < 5) storyBank.openingHints.push(generatedOpening);
+                    }
+
+                    if (generatedEnding) {
+                        storyBank.endings.add(generatedEnding);
+                        if (storyBank.endingHints.length < 5) storyBank.endingHints.push(generatedEnding);
                     }
                 }
             }
