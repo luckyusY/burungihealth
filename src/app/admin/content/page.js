@@ -5,11 +5,15 @@ import { supabase } from '../../../lib/supabase';
 import styles from './admin.module.css';
 
 export default function AdminDashboard() {
-    const [activeTab, setActiveTab] = useState('seo'); // 'seo' or 'products'
+    const [activeTab, setActiveTab] = useState('seo'); // 'seo', 'products', or 'tools'
     const [articles, setArticles] = useState([]);
     const [products, setProducts] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [categories, setCategories] = useState([]);
+
+    // New category state
+    const [newCat, setNewCat] = useState({ name: '', slug: '', department_id: '' });
+    const [genStatus, setGenStatus] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(null);
@@ -60,24 +64,107 @@ export default function AdminDashboard() {
         setSaving(null);
     }
 
+    // --- Tool Functions ---
+    async function addCategory() {
+        if (!newCat.name || !newCat.slug || !newCat.department_id) {
+            alert("Uzuza neza imyirondoro ya kategory!");
+            return;
+        }
+        setSaving('new-cat');
+        const { error } = await supabase.from('categories').insert([
+            { id: newCat.slug, ...newCat }
+        ]);
+        if (error) alert(error.message);
+        else {
+            alert("Category yakuweho neza!");
+            fetchAllData();
+            setNewCat({ name: '', slug: '', department_id: '' });
+        }
+        setSaving(null);
+    }
+
+    async function triggerAI() {
+        if (!confirm("Ushaka gutangira kwandika inkuru nshya ukoresheje AI?")) return;
+        setGenStatus("Muri gutegura... (Bishobora gufata umunota)");
+        try {
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                body: JSON.stringify({ secret: 'burungi-secure-gen' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`Twanditse inkuru ${data.count} nshya!`);
+                fetchAllData();
+            } else {
+                alert("Error: " + data.error);
+            }
+        } catch (e) {
+            alert("Request failed.");
+        }
+        setGenStatus(null);
+    }
+
     if (loading) return <div className={styles.loading}>Muri gutegerezwa...</div>;
+
+    const liveCount = articles.filter(a => a.is_approved).length;
+    const pendingCount = articles.filter(a => !a.is_approved).length;
 
     return (
         <main className={styles.container}>
             <header className={styles.header}>
-                <h1>BurungiHealth Admin Control</h1>
+                <div className={styles.headerTop}>
+                    <h1>BurungiHealth Admin</h1>
+                    <button
+                        className={styles.generateBtn}
+                        onClick={triggerAI}
+                        disabled={genStatus !== null}
+                    >
+                        {genStatus ? '⏳ ' + genStatus : '✦ Generate New Articles'}
+                    </button>
+                </div>
+
+                {/* Prominent Stats Row */}
+                <div className={styles.statsGrid}>
+                    <div className={styles.statCard} onClick={() => setActiveTab('seo')}>
+                        <span className={styles.statNum}>{articles.length}</span>
+                        <span className={styles.statLabel}>Total Articles</span>
+                    </div>
+                    <div className={`${styles.statCard} ${styles.statLive}`} onClick={() => setActiveTab('seo')}>
+                        <span className={styles.statNum}>{liveCount}</span>
+                        <span className={styles.statLabel}>Live</span>
+                    </div>
+                    <div className={`${styles.statCard} ${styles.statPending}`} onClick={() => setActiveTab('seo')}>
+                        <span className={styles.statNum}>{pendingCount}</span>
+                        <span className={styles.statLabel}>Pending Review</span>
+                    </div>
+                    <div className={styles.statCard} onClick={() => setActiveTab('products')}>
+                        <span className={styles.statNum}>{products.length}</span>
+                        <span className={styles.statLabel}>Products</span>
+                    </div>
+                    <div className={styles.statCard} onClick={() => setActiveTab('tools')}>
+                        <span className={styles.statNum}>{categories.length}</span>
+                        <span className={styles.statLabel}>Categories</span>
+                    </div>
+                </div>
+
                 <div className={styles.tabs}>
                     <button
                         className={activeTab === 'seo' ? styles.activeTab : styles.tab}
                         onClick={() => setActiveTab('seo')}
                     >
-                        SEO Articles ({articles.length})
+                        SEO Articles
                     </button>
                     <button
                         className={activeTab === 'products' ? styles.activeTab : styles.tab}
                         onClick={() => setActiveTab('products')}
                     >
-                        Product Management ({products.length})
+                        Products
+                    </button>
+                    <button
+                        className={activeTab === 'tools' ? styles.activeTab : styles.tab}
+                        onClick={() => setActiveTab('tools')}
+                    >
+                        + Add Category
                     </button>
                 </div>
             </header>
@@ -86,8 +173,10 @@ export default function AdminDashboard() {
 
             {activeTab === 'seo' && (
                 <div className={styles.view}>
-                    <div className={styles.stats}>
-                        {articles.filter(a => a.is_approved).length} Live / {articles.filter(a => !a.is_approved).length} Pending
+                    <div className={styles.seoMeta}>
+                        <span className={styles.metaBadgeLive}>{liveCount} Live</span>
+                        <span className={styles.metaBadgePending}>{pendingCount} Pending</span>
+                        <span className={styles.metaNote}>Click an article's content to edit it, then click away to auto-save.</span>
                     </div>
                     <div className={styles.list}>
                         {articles.map((article) => (
@@ -181,6 +270,70 @@ export default function AdminDashboard() {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {activeTab === 'tools' && (
+                <div className={styles.view}>
+                    <section className={styles.toolSection}>
+                        <h2>Add New Category</h2>
+                        <p>Create a new category. After adding it, run article generation so AI writes articles for this category.</p>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Category Name</label>
+                                <input
+                                    value={newCat.name}
+                                    onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
+                                    placeholder="e.g. Ifu ya Siporo"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Slug (URL ID — no spaces)</label>
+                                <input
+                                    value={newCat.slug}
+                                    onChange={(e) => setNewCat({ ...newCat, slug: e.target.value.toLowerCase().replace(/ /g, '-') })}
+                                    placeholder="e.g. ifu-siporo"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Department</label>
+                                <select
+                                    value={newCat.department_id}
+                                    onChange={(e) => setNewCat({ ...newCat, department_id: e.target.value })}
+                                >
+                                    <option value="">Select Department...</option>
+                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <button className={styles.approveBtn} onClick={addCategory} disabled={saving === 'new-cat'}>
+                            {saving === 'new-cat' ? 'Saving...' : '+ Add Category'}
+                        </button>
+                    </section>
+
+                    <section className={styles.toolSection}>
+                        <h2>Existing Categories ({categories.length})</h2>
+                        <div className={styles.catList}>
+                            {categories.map(c => (
+                                <div key={c.id} className={styles.catChip}>
+                                    <span className={styles.catName}>{c.name}</span>
+                                    <span className={styles.catSlug}>{c.id}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className={styles.toolSection}>
+                        <h2>Generate Articles (AI)</h2>
+                        <p>AI will write new articles for all category/tag/location combinations that don't have content yet. New articles start as Pending — review them in the SEO Articles tab.</p>
+                        <button
+                            className={styles.generateBtn}
+                            onClick={triggerAI}
+                            disabled={genStatus !== null}
+                        >
+                            {genStatus || '✦ Generate New Articles'}
+                        </button>
+                    </section>
                 </div>
             )}
         </main>

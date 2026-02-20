@@ -1,13 +1,20 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import styles from './page.module.css';
+import { supabase } from '../lib/supabase';
 
 export const metadata = {
   title: 'BurungiHealth | Umuti w\'ukuri ku buzima bw\'imyororokere',
   description: 'Gira ubuzima bwiza buzira umuze. Shakisha imiti igezweho yo kongera igitsina, kuvura kurangiza vuba no gushimisha umukunzi wawe.',
 }
 
-export default function Home() {
+export default async function Home() {
+  // Fetch products for the "Featured" section
+  const { data: products } = await supabase
+    .from('products')
+    .select('*')
+    .limit(4);
+
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
@@ -23,9 +30,9 @@ export default function Home() {
               Shaka ibisubizo nyabyo ku bibazo by'imyororokere. Gukira kurangiza vuba, kubura ubushake, cyangwa kongera igitsina byose birashoboka ukoresheje inyongeramusaruro zizewe nka Maxman.
             </p>
             <div className={`${styles.actions} ${styles.fadeUpDelay4}`}>
-              <Link href="/mens-health---ibinini---kurangiza-vuba-in-kigali" className={styles.primaryBtn}>
-                Reba Urugero Rw'Umuti (Demo)
-              </Link>
+              <a href="https://wa.me/250798707702" className={styles.primaryBtn}>
+                Tuvugishe Kuri WhatsApp
+              </a>
             </div>
           </div>
         </div>
@@ -46,7 +53,7 @@ export default function Home() {
               </div>
               <div className={styles.cardContent}>
                 <h3>Ibinini (Capsules)</h3>
-                <p>Inyongeramusaruro zizewe cyane vuba</p>
+                <p>Ibinini byizewe mu kugarura imbaraga</p>
               </div>
             </Link>
             <Link href="/category/amavuta" className={styles.card}>
@@ -60,12 +67,39 @@ export default function Home() {
               </div>
               <div className={styles.cardContent}>
                 <h3>Amavuta (Creams)</h3>
-                <p>Amavuta akoreshwa inyuma</p>
+                <p>Amavuta yo kongera ingufu no gukomera</p>
               </div>
             </Link>
           </div>
         </div>
       </section>
+
+      {products && products.length > 0 && (
+        <section className={styles.featuredSection}>
+          <div className="container">
+            <h2 className={styles.sectionTitle}>Ibicuruzwa Byatoranyijwe</h2>
+            <div className={styles.productGrid}>
+              {products.map((product) => (
+                <div key={product.id} className={styles.productCard}>
+                  <div className={styles.productImgWrap}>
+                    <Image
+                      src={product.image_url || 'https://via.placeholder.com/300'}
+                      alt={product.name}
+                      fill
+                      className={styles.img}
+                    />
+                  </div>
+                  <div className={styles.productInfo}>
+                    <h3 className={styles.productName}>{product.name}</h3>
+                    <p className={styles.productPrice}>{product.price != null ? Number(product.price).toLocaleString() : 'Baza Igiciro'} {product.price != null ? 'RWF' : ''}</p>
+                    <a href="https://wa.me/250798707702" className={styles.buyBtn}>Gura ubu</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }
