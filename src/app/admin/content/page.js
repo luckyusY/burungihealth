@@ -19,6 +19,8 @@ export default function AdminDashboard() {
     const [newDept, setNewDept] = useState({ name: '', slug: '' });
     const [newProduct, setNewProduct] = useState({ name: '', slug: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' });
     const [genStatus, setGenStatus] = useState(null);
+    // Per-product generation state: { [productId]: { selectedTagIds: string[], status: string|null } }
+    const [productGenState, setProductGenState] = useState({});
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(null);
@@ -121,6 +123,79 @@ export default function AdminDashboard() {
         if (error) alert(error.message);
         else setState(prev => prev.filter(r => r.id !== id));
         setSaving(null);
+    }
+
+    // --- Per-product generation helpers ---
+    function getProductDeptTags(product) {
+        const cat = categories.find(c => c.id === product.category_id);
+        const dept = departments.find(d => d.id === (product.department_id || cat?.department_id));
+        if (!dept) return [];
+        return tags.filter(t => t.department_id === dept.id);
+    }
+
+    function productArticleCount(product) {
+        if (!product.slug) return 0;
+        return articles.filter(a => a.slug.includes(`---${product.slug}---`)).length;
+    }
+
+    function getSelectedTagIds(productId, deptTags) {
+        const state = productGenState[productId];
+        if (!state || !state.selectedTagIds) return deptTags.map(t => String(t.id));
+        return state.selectedTagIds;
+    }
+
+    function toggleProductTag(productId, tagId, deptTags) {
+        const current = getSelectedTagIds(productId, deptTags);
+        const id = String(tagId);
+        const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
+        setProductGenState(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), selectedTagIds: next } }));
+    }
+
+    function setProductStatus(productId, status) {
+        setProductGenState(prev => ({ ...prev, [productId]: { ...(prev[productId] || {}), status } }));
+    }
+
+    async function triggerProductAI(product) {
+        const deptTags = getProductDeptTags(product);
+        const selectedTagIds = getSelectedTagIds(product.id, deptTags);
+        if (selectedTagIds.length === 0) { alert('Select at least one keyword first.'); return; }
+        if (!product.slug) { alert('This product needs a slug before generating articles.'); return; }
+
+        let total = 0;
+        let batch = 1;
+        while (true) {
+            setProductStatus(product.id, `Batch ${batch} — ${total} done...`);
+            try {
+                const res = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 10, productId: product.id, tagIds: selectedTagIds })
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    alert(`Server error (${res.status}): ${text}`);
+                    setProductStatus(product.id, '✗ Error');
+                    break;
+                }
+                const data = await res.json();
+                if (!data.success) {
+                    alert('Error: ' + (data.error || 'Unknown'));
+                    setProductStatus(product.id, '✗ Error');
+                    break;
+                }
+                total += data.count;
+                if (data.count === 0 || !data.remaining) {
+                    setProductStatus(product.id, `✓ Done — ${total} new articles`);
+                    fetchAllData();
+                    break;
+                }
+                batch++;
+            } catch (e) {
+                alert(`Request failed: ${e.message}\n\nCheck OPENAI_API_KEY is set in Vercel environment variables.`);
+                setProductStatus(product.id, '✗ Error');
+                break;
+            }
+        }
     }
 
     async function triggerAI() {
@@ -395,7 +470,17 @@ export default function AdminDashboard() {
                             return (
                             <div key={product.id} className={styles.card}>
                                 <div className={styles.cardHeader}>
-                                    <h3 className={styles.slug}>{product.name}</h3>
+                                    <div>
+                                        <h3 className={styles.slug}>{product.name}</h3>
+                                        {product.slug && (
+                                            <span style={{ fontSize: '0.72rem', color: '#888' }}>
+                                                slug: {product.slug} · {productArticleCount(product)} articles generated
+                                            </span>
+                                        )}
+                                        {!product.slug && (
+                                            <span style={{ fontSize: '0.72rem', color: '#e57373' }}>⚠ No slug — set a slug to enable AI generation</span>
+                                        )}
+                                    </div>
                                     <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                                         {saveLabel && (
                                             <span style={{ fontSize: '0.8rem', color: saving.endsWith('-done') ? '#4caf50' : '#d4af37' }}>
@@ -487,7 +572,64 @@ export default function AdminDashboard() {
                                         </select>
                                     </div>
                                 </div>
-                                <p style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.5rem' }}>
+                                {/* Per-product AI Generation */}
+                                {(() => {
+                                    const deptTags = getProductDeptTags(product);
+                                    const selectedTagIds = getSelectedTagIds(product.id, deptTags);
+                                    const pState = productGenState[product.id];
+                                    const isGenerating = pState?.status && !pState.status.startsWith('✓') && !pState.status.startsWith('✗');
+                                    return (
+                                        <div style={{ marginTop: '1rem', padding: '0.85rem 1rem', background: 'rgba(212,175,55,0.04)', border: '1px solid rgba(212,175,55,0.15)', borderRadius: '8px' }}>
+                                            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d4af37', marginBottom: '0.5rem' }}>
+                                                ✦ Generate AI Articles for this product
+                                            </p>
+                                            {!product.slug ? (
+                                                <p style={{ fontSize: '0.78rem', color: '#888' }}>Set a slug above first, then you can generate articles.</p>
+                                            ) : deptTags.length === 0 ? (
+                                                <p style={{ fontSize: '0.78rem', color: '#888' }}>No keywords found for this product's department. Assign the product to a category that has a department, and add keywords to that department in the SEO Data tab.</p>
+                                            ) : (
+                                                <>
+                                                    <p style={{ fontSize: '0.74rem', color: '#888', marginBottom: '0.5rem' }}>
+                                                        Select keywords to generate for × {locations.length} location{locations.length !== 1 ? 's' : ''}:
+                                                    </p>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                                                        {deptTags.map(tag => {
+                                                            const isSelected = selectedTagIds.includes(String(tag.id));
+                                                            return (
+                                                                <label key={tag.id} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.76rem', background: isSelected ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isSelected ? 'rgba(212,175,55,0.45)' : 'rgba(255,255,255,0.1)'}`, padding: '0.22rem 0.55rem', borderRadius: '4px', userSelect: 'none' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isSelected}
+                                                                        onChange={() => toggleProductTag(product.id, tag.id, deptTags)}
+                                                                        style={{ width: 'auto', margin: 0 }}
+                                                                    />
+                                                                    {tag.name}
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                                                        <button
+                                                            className={styles.approveBtn}
+                                                            onClick={() => triggerProductAI(product)}
+                                                            disabled={isGenerating}
+                                                            style={{ padding: '0.4rem 1rem', fontSize: '0.82rem' }}
+                                                        >
+                                                            {isGenerating ? '⏳ Generating...' : `✦ Generate (${selectedTagIds.length} keywords × ${locations.length} locations)`}
+                                                        </button>
+                                                        {pState?.status && (
+                                                            <span style={{ fontSize: '0.78rem', color: pState.status.startsWith('✓') ? '#4caf50' : pState.status.startsWith('✗') ? '#e57373' : '#d4af37' }}>
+                                                                {pState.status}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                <p style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.75rem' }}>
                                     💡 Click any field and then click away to auto-save.
                                 </p>
                             </div>
