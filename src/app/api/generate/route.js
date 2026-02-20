@@ -1,14 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const openaiApiKey = process.env.OPENAI_API_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-const openai = new OpenAI({ apiKey: openaiApiKey });
-
 export async function POST(request) {
+    // Instantiate clients inside the handler so env vars are read at runtime, not build time
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     try {
         const { secret } = await request.json();
         if (secret !== 'burungi-secure-gen') {
