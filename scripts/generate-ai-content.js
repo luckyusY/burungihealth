@@ -76,9 +76,23 @@ async function main() {
                         continue;
                     }
 
+                    // 3. Fetch products for this category to get context
+                    const { data: catProducts } = await supabase
+                        .from('products')
+                        .select('name, ai_context')
+                        .eq('category_id', cat.id);
+
+                    const productContext = catProducts && catProducts.length > 0
+                        ? catProducts.map(p => `- ${p.name}: ${p.ai_context || 'Standard medical grade'}`).join('\n')
+                        : 'Use general health knowledge for these BurungiHealth products.';
+
                     console.log(`[GENERATING] Writing Kinyarwanda SEO article with OpenAI for: ${slug}...`);
 
                     const prompt = `Write a 150-word SEO optimized paragraph in native Kinyarwanda about why a ${cat.name} from the ${dept.name} department is the absolute best and safest solution for someone experiencing "${tag.name}" in ${loc.name}. 
+
+Product Context to include:
+${productContext}
+
 Make it sound persuasive, trustworthy, and medically reassuring. 
 Ensure excellent Kinyarwanda grammar.
 Do not use markdown formatting. Do not include a title. Just return the raw text paragraph.`;
@@ -90,7 +104,8 @@ Do not use markdown formatting. Do not include a title. Just return the raw text
                             .from('seo_articles')
                             .insert({
                                 slug: slug,
-                                content: aiText
+                                content: aiText,
+                                is_approved: false
                             });
 
                         if (error) {

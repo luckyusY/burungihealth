@@ -41,26 +41,29 @@ CREATE TABLE locations (
 );
 
 -- 5. Create Products Table
-CREATE TABLE products (
-    id TEXT PRIMARY KEY,
-    brand TEXT NOT NULL,
+CREATE TABLE IF NOT EXISTS products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
-    slug TEXT NOT NULL,
-    department_id TEXT REFERENCES departments(id),
-    category_id TEXT REFERENCES categories(id),
-    tags TEXT[] NOT NULL,
-    price NUMERIC NOT NULL,
-    currency TEXT NOT NULL,
+    price DECIMAL(10,2) NOT NULL,
+    image_url TEXT,
+    description TEXT,
+    ai_context TEXT, -- Added context for AI content generation
+    department_id UUID REFERENCES departments(id),
+    category_id UUID REFERENCES categories(id),
+    tags TEXT[], -- array of tag slugs for easy matching
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     rating NUMERIC NOT NULL,
     reviews INTEGER NOT NULL,
     image TEXT NOT NULL
 );
 
 -- 6. Create SEO Articles Table
-CREATE TABLE seo_articles (
+CREATE TABLE IF NOT EXISTS seo_articles (
     slug TEXT PRIMARY KEY,
     content TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+    is_approved BOOLEAN DEFAULT FALSE,
+    edited_content TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- ==========================================
@@ -86,6 +89,7 @@ INSERT INTO locations (id, name, slug) VALUES
 ('kigali', 'Muri Kigali', 'kigali'),
 ('rwanda', 'Mu Rwanda', 'rwanda');
 
-INSERT INTO products (id, brand, name, slug, department_id, category_id, tags, price, currency, rating, reviews, image) VALUES
-('prod_1', 'Maxman', 'Maxman Capsules', 'maxman-capsules', 'mens-health', 'ibinini', ARRAY['kurangiza-vuba', 'kongera-igitsina', 'kubura-ubushake'], 25000, 'RWF', 4.8, 542, 'https://www.arogga.com/_next/image?url=https%3A%2F%2Fcdn2.arogga.com%2FeyJidWNrZXQiOiJhcm9nZ2EiLCJrZXkiOiJtZWRpY2luZVwvNDRcLzQ0MjMxLU1heG1hbi1jOXhqLnBuZyIsImVkaXRzIjp7InJlc2l6ZSI6eyJ3aWR0aCI6MTAwMCwiaGVpZ2h0IjoxMDAwLCJmaXQiOiJvdXRzaWRlIn0sIm92ZXJsYXlXaXRoIjp7ImJ1Y2tldCI6ImFyb2dnYSIsImtleSI6Im1pc2NcL3dtLnBuZyIsImFscGhhIjo5MH19fQ%3D%3D&w=1280&q=75'),
-('prod_2', 'Titan Gel', 'Titan Gel Gold', 'titan-gel-gold', 'mens-health', 'amavuta', ARRAY['kurangiza-vuba', 'kongera-igitsina'], 20000, 'RWF', 4.9, 890, 'https://m.media-amazon.com/images/I/71fl3xZuzwL._AC_SL1500_.jpg');
+INSERT INTO products (name, price, image_url, description, ai_context, department_id, category_id, tags)
+VALUES 
+('Maxman Capsules', 25000, 'https://cdn2.arogga.com/medicine/44/44231-Maxman-c9xj.png', 'Nyongeramusaruro ifasha kongera ingufu...', 'Contains horny goat weed and maca root. Focus on stamina and blood flow.', (SELECT id FROM departments WHERE slug = 'mens-health'), (SELECT id FROM categories WHERE slug = 'ibinini'), ARRAY['kurangiza-vuba', 'kongera-igitsina']),
+('Titan Gel Gold', 35000, 'https://m.media-amazon.com/images/I/71fl3xZuzwL._AC_SL1500_.jpg', 'Amavuta yizewe mu kugarura icyizere...', 'High concentration of succinic acid. Safe for daily skin application.', (SELECT id FROM departments WHERE slug = 'mens-health'), (SELECT id FROM categories WHERE slug = 'amavuta'), ARRAY['kurangiza-vuba', 'kubura-ubushake']);
