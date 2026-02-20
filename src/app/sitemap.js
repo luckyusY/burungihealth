@@ -58,11 +58,8 @@ export default async function sitemap() {
     }
 
     const [categoriesRes, approvedArticlesRes] = await Promise.all([
-        supabase.from("categories").select("slug, updated_at"),
-        supabase
-            .from("seo_articles")
-            .select("slug, created_at, updated_at")
-            .eq("is_approved", true),
+        supabase.from("categories").select("slug"),
+        supabase.from("seo_articles").select("slug, created_at").eq("is_approved", true),
     ]);
 
     if (categoriesRes.error) console.error("Sitemap categories error:", categoriesRes.error.message);
@@ -77,7 +74,7 @@ export default async function sitemap() {
 
         addPage(pages, {
             url: `${SITE_URL}/category/${category.slug}`,
-            lastModified: category.updated_at || new Date(),
+            lastModified: new Date(),
             changeFrequency: "daily",
             priority: 0.85,
         });
@@ -86,7 +83,7 @@ export default async function sitemap() {
     for (const article of approvedArticles) {
         if (!article?.slug || !hasRoom(pages)) break;
         const url = `${SITE_URL}/${article.slug}`;
-        const modifiedAt = article.updated_at || article.created_at || new Date();
+        const modifiedAt = article.created_at || new Date();
 
         addPage(pages, {
             url,
