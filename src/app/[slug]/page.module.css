@@ -1,0 +1,136 @@
+.main {
+    min-height: 100vh;
+    padding-bottom: 4rem;
+}
+
+.header {
+    padding: 6rem 0 4rem;
+    background-color: var(--primary-light);
+    text-align: center;
+}
+
+.title {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    margin: 1.5rem 0;
+}
+
+.highlight {
+    color: var(--primary-dark);
+    font-style: italic;
+}
+
+.description {
+    max-width: 600px;
+    margin: 0 auto;
+    font-size: 1.125rem;
+    color: var(--text-muted);
+}
+
+.productsSection {
+    background-color: var(--bg-main);
+    margin-top: -3rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 2rem;
+}
+
+.productCard {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.productCard:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+}
+
+.imageWrap {
+    position: relative;
+    aspect-ratio: 1;
+    background-color: var(--bg-secondary);
+}
+
+.productImg {
+    object-fit: cover;
+    transition: var(--transition);
+}
+
+.productCard:hover .productImg {
+    transform: scale(1.05);
+}
+
+.productInfo {
+    padding: 1.5rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.brand {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.productName {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+    flex: 1;
+}
+
+.metaRow {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+}
+
+.price {
+    font-weight: 600;
+    font-size: 1.25rem;
+}
+
+.buyBtn {
+    background-color: var(--primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-full);
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.buyBtn:hover {
+    background-color: var(--primary-dark);
+}
+
+.seoContent {
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    margin: 2rem auto;
+}
+
+.seoContent h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.seoContent p {
+    color: var(--text-muted);
+    font-size: 1.125rem;
+}
