@@ -17,7 +17,7 @@ export default function AdminDashboard() {
     const [newTag, setNewTag] = useState({ name: '', slug: '', department_id: '', synonyms: '' });
     const [newLoc, setNewLoc] = useState({ name: '', slug: '' });
     const [newDept, setNewDept] = useState({ name: '', slug: '' });
-    const [newProduct, setNewProduct] = useState({ name: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' });
+    const [newProduct, setNewProduct] = useState({ name: '', slug: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' });
     const [genStatus, setGenStatus] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -75,10 +75,12 @@ export default function AdminDashboard() {
     // --- Product Functions ---
     async function addProduct() {
         if (!newProduct.name) { alert('Enter a product name.'); return; }
+        if (!newProduct.slug) { alert('Enter a product slug (used in URLs).'); return; }
         if (!newProduct.category_id) { alert('Select a category.'); return; }
         setSaving('add-product');
         const row = {
             name: newProduct.name,
+            slug: newProduct.slug,
             price: newProduct.price ? Number(newProduct.price) : null,
             image_url: newProduct.image_url || null,
             description: newProduct.description || null,
@@ -88,7 +90,7 @@ export default function AdminDashboard() {
         };
         const { error } = await supabase.from('products').insert([row]);
         if (error) alert(error.message);
-        else { fetchAllData(); setNewProduct({ name: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' }); }
+        else { fetchAllData(); setNewProduct({ name: '', slug: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' }); }
         setSaving(null);
     }
 
@@ -147,11 +149,14 @@ export default function AdminDashboard() {
     const liveCount = articles.filter(a => a.is_approved).length;
     const pendingCount = articles.filter(a => !a.is_approved).length;
 
-    // How many combinations will AI generate: dept×cat×(dept-scoped tags)×loc
-    const combinations = departments.reduce((acc, dept) => {
-        const deptCats = categories.filter(c => c.department_id === dept.id);
+    // How many combinations will AI generate: products-with-slug × dept-scoped-tags × locations
+    const productsWithSlug = products.filter(p => p.slug);
+    const combinations = productsWithSlug.reduce((acc, product) => {
+        const cat = categories.find(c => c.id === product.category_id);
+        const dept = departments.find(d => d.id === (product.department_id || cat?.department_id));
+        if (!dept) return acc;
         const deptTags = tags.filter(t => t.department_id === dept.id);
-        return acc + deptCats.length * deptTags.length * locations.length;
+        return acc + deptTags.length * locations.length;
     }, 0);
 
     return (
@@ -273,10 +278,24 @@ export default function AdminDashboard() {
                                 <label>Product Name *</label>
                                 <input
                                     value={newProduct.name}
-                                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    onChange={(e) => {
+                                        const name = e.target.value;
+                                        const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+                                        setNewProduct({ ...newProduct, name, slug });
+                                    }}
                                     placeholder="e.g. Vigor Plus Capsules"
                                 />
                             </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Slug * <span style={{ color: '#888', fontWeight: 400 }}>(auto-filled — used in URLs)</span></label>
+                                <input
+                                    value={newProduct.slug}
+                                    onChange={(e) => setNewProduct({ ...newProduct, slug: e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') })}
+                                    placeholder="e.g. vigor-plus-capsules"
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.prodRow}>
                             <div className={styles.fieldGroup}>
                                 <label>Price (RWF)</label>
                                 <input
@@ -386,6 +405,14 @@ export default function AdminDashboard() {
                                         />
                                     </div>
                                     <div className={styles.fieldGroup}>
+                                        <label>Slug <span style={{ color: '#888', fontWeight: 400 }}>(URL identifier — must be unique)</span></label>
+                                        <input
+                                            defaultValue={product.slug || ''}
+                                            onBlur={(e) => saveProductEdit(product.id, 'slug', e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+                                            placeholder="e.g. maxman-capsules"
+                                        />
+                                    </div>
+                                    <div className={styles.fieldGroup}>
                                         <label>Price (RWF)</label>
                                         <input
                                             type="number"
@@ -459,10 +486,10 @@ export default function AdminDashboard() {
                 <div className={styles.view}>
                     <div className={styles.dataExplainer}>
                         <strong>How article generation works:</strong> AI writes one article for every combination of
-                        <span className={styles.pill}>Department</span> +
-                        <span className={styles.pill}>Category</span> +
+                        <span className={styles.pill}>Product</span> +
                         <span className={styles.pill}>Keyword</span> +
                         <span className={styles.pill}>Location</span>.
+                        Only products with a <strong>slug</strong> set generate articles ({productsWithSlug.length} of {products.length} products have slugs).
                         Currently that is <strong>{combinations} possible articles</strong>. Add more keywords or locations to scale up.
                     </div>
 
@@ -663,9 +690,9 @@ export default function AdminDashboard() {
                     <section className={styles.toolSection}>
                         <h2>Generate AI Articles</h2>
                         <p>
-                            AI will write articles for every missing <strong>Keyword × Category × Location</strong> combination.
+                            AI will write articles for every missing <strong>Product × Keyword × Location</strong> combination.
                             Currently <strong>{combinations} total combinations</strong> — articles already written are skipped.
-                            New articles appear as Pending in the SEO Articles tab for review.
+                            Only products with a slug are included. New articles appear as Pending in the SEO Articles tab for review.
                         </p>
                         <button className={styles.generateBtn} onClick={triggerAI} disabled={genStatus !== null}>
                             {genStatus || '✦ Generate New Articles'}

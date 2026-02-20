@@ -18,10 +18,10 @@ export async function generateMetadata({ params }) {
 
     if (!data) return { title: 'Not Found' };
 
-    const { department, category, tag, location } = data;
-    const title = `${tag.name} Solution in ${location.name} — ${category.name} | BurungiHealth`;
+    const { department, category, tag, location, product } = data;
+    const title = `${product.name} for ${tag.name} in ${location.name} | BurungiHealth`;
     const synonymPart = tag.synonyms ? ` Also known as: ${tag.synonyms}.` : '';
-    const description = `Looking for the best ${tag.name.toLowerCase()} solution in ${location.name}? Discover trusted ${category.name.toLowerCase()} from BurungiHealth. Fast & discreet delivery across Rwanda.${synonymPart}`;
+    const description = `Looking for ${tag.name.toLowerCase()} help in ${location.name}? ${product.name} from BurungiHealth — trusted, fast & discreet delivery across Rwanda.${synonymPart}`;
 
     return {
         title,
@@ -37,8 +37,8 @@ export default async function ProgrammaticPage({ params }) {
 
     if (!data) return <h1>404 - Page Not Found</h1>;
 
-    const { department, category, tag, location, products, article } = data;
-    const related = await getRelatedArticles(slug, tag.slug, category.slug, 5);
+    const { department, category, tag, location, product, products, article } = data;
+    const related = await getRelatedArticles(slug, tag.slug, product.slug, 5);
 
     // JSON-LD: BreadcrumbList + Product ItemList
     const jsonLd = {
@@ -96,12 +96,12 @@ export default async function ProgrammaticPage({ params }) {
                     <div className="container" style={{ padding: '0 1rem' }}>
                         <span className="badge">{department.name}</span>
                         <h1 className={styles.title}>
-                            Best <span className={styles.highlight}>{tag.name}</span> Solution<br />
-                            in <span className={styles.highlight}>{location.name}</span>
+                            <span className={styles.highlight}>{product.name}</span><br />
+                            for {tag.name} in <span className={styles.highlight}>{location.name}</span>
                         </h1>
                         <p className={styles.description}>
                             Looking for a trusted <strong>{tag.name.toLowerCase()}</strong> solution in <strong>{location.name}</strong>?
-                            Explore our <strong>{category.name.toLowerCase()}</strong> range — fast delivery, 100% discreet.
+                            <strong> {product.name}</strong> from BurungiHealth — fast delivery, 100% discreet.
                         </p>
                         {tag.synonyms && (
                             <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.45)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
