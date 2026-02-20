@@ -89,3 +89,25 @@ export async function getComboData(comboSlug) {
         article
     };
 }
+
+export async function getCategoryData(slug) {
+    // 1. Fetch category
+    const { data: category } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('slug', slug)
+        .single();
+
+    if (!category) return null;
+
+    // 2. Fetch products for this category
+    const { data: products } = await supabase
+        .from('products')
+        .select('*')
+        .eq('category_id', category.id);
+
+    return {
+        category,
+        products: products || []
+    };
+}

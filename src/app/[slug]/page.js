@@ -2,6 +2,8 @@ import { generateCategoryCombos, getComboData } from '@/lib/data';
 import Image from 'next/image';
 import styles from './page.module.css';
 
+export const revalidate = 60; // Regenerate page in background every 60s
+
 // 1. THIS IS THE MAGIC: It tells Next.js to pre-build all these URL combinations at build time
 export async function generateStaticParams() {
     const combos = await generateCategoryCombos();
