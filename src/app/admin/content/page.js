@@ -104,6 +104,19 @@ export default function AdminDashboard() {
         setTimeout(() => setSaving(null), 1500);
     }
 
+    async function autoFillSlugs() {
+        const missing = products.filter(p => !p.slug);
+        if (missing.length === 0) { alert('All products already have slugs.'); return; }
+        if (!confirm(`Auto-generate slugs for ${missing.length} product(s) from their names?`)) return;
+        setSaving('auto-slug');
+        for (const p of missing) {
+            const slug = p.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            await supabase.from('products').update({ slug }).eq('id', p.id);
+        }
+        fetchAllData();
+        setSaving(null);
+    }
+
     // --- Generic add helpers ---
     async function addRow(table, row, stateKey, resetFn, label) {
         if (!row.name || !row.slug) { alert(`Enter a name and slug for the ${label}.`); return; }
@@ -457,6 +470,21 @@ export default function AdminDashboard() {
                         </button>
                     </section>
 
+                    {products.filter(p => !p.slug).length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', background: 'rgba(229,115,115,0.08)', border: '1px solid rgba(229,115,115,0.25)', borderRadius: '8px', marginBottom: '1rem' }}>
+                            <span style={{ fontSize: '0.82rem', color: '#e57373' }}>
+                                ⚠ {products.filter(p => !p.slug).length} product(s) have no slug and won't generate articles.
+                            </span>
+                            <button
+                                className={styles.approveBtn}
+                                onClick={autoFillSlugs}
+                                disabled={saving === 'auto-slug'}
+                                style={{ padding: '0.3rem 0.85rem', fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                            >
+                                {saving === 'auto-slug' ? 'Saving...' : 'Auto-fill slugs from names'}
+                            </button>
+                        </div>
+                    )}
                     <div className={styles.list}>
                         {products.length === 0 && (
                             <p style={{ color: '#666', padding: '1rem 0' }}>No products yet. Add your first product above.</p>
