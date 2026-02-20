@@ -42,19 +42,19 @@ CREATE TABLE locations (
 
 -- 5. Create Products Table
 CREATE TABLE IF NOT EXISTS products (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     image_url TEXT,
     description TEXT,
     ai_context TEXT, -- Added context for AI content generation
-    department_id UUID REFERENCES departments(id),
-    category_id UUID REFERENCES categories(id),
+    department_id TEXT REFERENCES departments(id),
+    category_id TEXT REFERENCES categories(id),
     tags TEXT[], -- array of tag slugs for easy matching
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    rating NUMERIC NOT NULL,
-    reviews INTEGER NOT NULL,
-    image TEXT NOT NULL
+    rating NUMERIC DEFAULT 5.0,
+    reviews INTEGER DEFAULT 0,
+    image TEXT -- old field for compatibility
 );
 
 -- 6. Create SEO Articles Table
@@ -89,7 +89,7 @@ INSERT INTO locations (id, name, slug) VALUES
 ('kigali', 'Muri Kigali', 'kigali'),
 ('rwanda', 'Mu Rwanda', 'rwanda');
 
-INSERT INTO products (name, price, image_url, description, ai_context, department_id, category_id, tags)
+INSERT INTO products (id, name, price, image_url, description, ai_context, department_id, category_id, tags, rating, reviews, image)
 VALUES 
-('Maxman Capsules', 25000, 'https://cdn2.arogga.com/medicine/44/44231-Maxman-c9xj.png', 'Nyongeramusaruro ifasha kongera ingufu...', 'Contains horny goat weed and maca root. Focus on stamina and blood flow.', (SELECT id FROM departments WHERE slug = 'mens-health'), (SELECT id FROM categories WHERE slug = 'ibinini'), ARRAY['kurangiza-vuba', 'kongera-igitsina']),
-('Titan Gel Gold', 35000, 'https://m.media-amazon.com/images/I/71fl3xZuzwL._AC_SL1500_.jpg', 'Amavuta yizewe mu kugarura icyizere...', 'High concentration of succinic acid. Safe for daily skin application.', (SELECT id FROM departments WHERE slug = 'mens-health'), (SELECT id FROM categories WHERE slug = 'amavuta'), ARRAY['kurangiza-vuba', 'kubura-ubushake']);
+('maxman-capsules', 'Maxman Capsules', 25000, 'https://cdn2.arogga.com/medicine/44/44231-Maxman-c9xj.png', 'Nyongeramusaruro ifasha kongera ingufu...', 'Contains horny goat weed and maca root. Focus on stamina and blood flow.', 'mens-health', 'ibinini', ARRAY['kurangiza-vuba', 'kongera-igitsina'], 4.8, 542, ''),
+('titan-gel-gold', 'Titan Gel Gold', 35000, 'https://m.media-amazon.com/images/I/71fl3xZuzwL._AC_SL1500_.jpg', 'Amavuta yizewe mu kugarura icyizere...', 'High concentration of succinic acid. Safe for daily skin application.', 'mens-health', 'amavuta', ARRAY['kurangiza-vuba', 'kubura-ubushake'], 4.9, 890, '');

@@ -1,6 +1,6 @@
 .container {
     padding: 2rem;
-    max-width: 1000px;
+    max-width: 1100px;
     margin: 0 auto;
     color: #f5f5f5;
     background: #0a0a0a;
@@ -9,12 +9,38 @@
 .header {
     margin-bottom: 3rem;
     border-bottom: 1px solid #222;
-    padding-bottom: 1rem;
+    padding-bottom: 2rem;
 }
 
 .header h1 {
     color: #d4af37;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.tabs {
+    display: flex;
+    gap: 1rem;
+}
+
+.tab,
+.activeTab {
+    padding: 0.8rem 2rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.tab {
+    background: #1a1a1a;
+    color: #888;
+    border: 1px solid #333;
+}
+
+.activeTab {
+    background: #d4af37;
+    color: black;
+    border: 1px solid #d4af37;
 }
 
 .stats {
@@ -28,7 +54,7 @@
 .list {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2rem;
 }
 
 .card {
@@ -36,7 +62,6 @@
     border: 1px solid #222;
     border-radius: 12px;
     padding: 1.5rem;
-    transition: all 0.3s ease;
 }
 
 .card.approved {
@@ -45,43 +70,41 @@
 
 .card.pending {
     border-left: 4px solid #d4af37;
-    opacity: 0.9;
 }
 
-.cardHeader {
+/* Product Editor Specifics */
+.prodRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.fieldGroup {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.slug {
-    font-family: monospace;
-    font-size: 0.9rem;
+.fieldGroup label {
+    font-size: 0.8rem;
     color: #888;
+    text-transform: uppercase;
+    font-weight: 600;
 }
 
-.badgeLive {
-    background: #6da376;
-    color: white;
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 700;
+.fieldGroup input,
+.fieldGroup select {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #eee;
+    padding: 0.8rem;
+    border-radius: 6px;
 }
 
-.badgePending {
-    background: #d4af37;
-    color: black;
-    font-size: 0.75rem;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: 700;
-}
-
-.editor {
+.editor,
+.miniEditor {
     width: 100%;
-    min-height: 150px;
     background: #0a0a0a;
     color: #eee;
     border: 1px solid #333;
@@ -90,42 +113,55 @@
     font-family: inherit;
     font-size: 1rem;
     line-height: 1.5;
-    resize: vertical;
+}
+
+.editor {
+    min-height: 200px;
+}
+
+.miniEditor {
+    min-height: 100px;
     margin-bottom: 1rem;
 }
 
-.editor:focus {
-    outline: none;
-    border-color: #d4af37;
+.badgeLive {
+    background: #6da376;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.75rem;
 }
 
-.controls {
-    display: flex;
-    justify-content: flex-end;
+.badgePending {
+    background: #d4af37;
+    color: black;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.75rem;
 }
 
 .approveBtn {
     background: #d4af37;
     color: black;
-    padding: 0.6rem 1.2rem;
+    padding: 0.6rem 1.5rem;
     border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
-
-.approveBtn:hover {
-    background: #f1c40f;
-    transform: translateY(-2px);
-}
-
-.approveBtn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    font-weight: 700;
 }
 
 .loading {
     padding: 4rem;
     text-align: center;
-    font-size: 1.5rem;
     color: #d4af37;
+    font-size: 1.5rem;
+}
+
+.error {
+    background: #3c1e1e;
+    border: 1px solid #ff4d4d;
+    color: #ff4d4d;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
 }
