@@ -91,8 +91,9 @@ export default async function Home() {
                   </div>
                   <div className={styles.productInfo}>
                     <h3 className={styles.productName}>{product.name}</h3>
-                    <p className={styles.productPrice}>{product.price != null ? Number(product.price).toLocaleString() : 'Baza Igiciro'} {product.price != null ? 'RWF' : ''}</p>
-                    <a href="https://wa.me/250798707702" className={styles.buyBtn}>Gura ubu</a>
+                    <p className={styles.productPrice}>{product.price != null ? Number(product.price).toLocaleString() : 'Ask for Price'} {product.price != null ? 'RWF' : ''}</p>
+                    <a href={`https://wa.me/250798707702?text=Hello, I want to order: ${encodeURIComponent(product.name)}`} className={styles.buyBtn}>Buy Now</a>
+                    <p className={styles.productPhone}>📞 +250 798 707 702</p>
                   </div>
                 </div>
               ))}

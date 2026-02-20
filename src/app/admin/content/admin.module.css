@@ -321,6 +321,13 @@
 }
 
 /* ─── Approve / Action Buttons ─── */
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
 .approveBtn {
     background: #d4af37;
     color: black;
@@ -338,6 +345,28 @@
 }
 
 .approveBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.deleteBtn {
+    background: transparent;
+    color: #ff4d4d;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid #ff4d4d;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+
+.deleteBtn:hover:not(:disabled) {
+    background: #ff4d4d;
+    color: white;
+}
+
+.deleteBtn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
 }

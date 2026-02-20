@@ -56,6 +56,15 @@ export default function AdminDashboard() {
         setSaving(null);
     }
 
+    async function deleteArticle(slug) {
+        if (!confirm(`Delete this article?\n\n${slug}`)) return;
+        setSaving(slug + '-del');
+        const { error } = await supabase.from('seo_articles').delete().eq('slug', slug);
+        if (error) alert(error.message);
+        else setArticles(prev => prev.filter(a => a.slug !== slug));
+        setSaving(null);
+    }
+
     // --- Product Functions ---
     async function saveProductEdit(id, field, value) {
         setSaving(id);
@@ -199,6 +208,13 @@ export default function AdminDashboard() {
                                         disabled={saving === article.slug}
                                     >
                                         {saving === article.slug ? 'Saving...' : (article.is_approved ? 'Unapprove' : 'Approve & Go Live')}
+                                    </button>
+                                    <button
+                                        className={styles.deleteBtn}
+                                        onClick={() => deleteArticle(article.slug)}
+                                        disabled={saving === article.slug + '-del'}
+                                    >
+                                        {saving === article.slug + '-del' ? 'Deleting...' : 'Delete'}
                                     </button>
                                 </div>
                             </div>

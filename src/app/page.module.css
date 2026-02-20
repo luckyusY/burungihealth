@@ -161,10 +161,20 @@
   border-radius: var(--radius-full);
   font-weight: 600;
   transition: var(--transition);
+  width: 100%;
 }
 
 .buyBtn:hover {
   background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+.productPhone {
+  font-size: 0.82rem;
+  color: var(--primary);
+  font-weight: 700;
+  margin-top: 0.6rem;
+  letter-spacing: 0.02em;
 }
 
 .sectionTitle {

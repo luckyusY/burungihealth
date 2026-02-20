@@ -21,13 +21,30 @@ export default function RootLayout({ children }) {
   return (
     <html lang="rw">
       <body className={`${outfit.variable} ${playfair.variable}`}>
+        {/* Top Contact Bar */}
+        <div className="top-bar">
+          <div className="container top-bar-container">
+            <div className="info-group">
+              <span className="info-label">Order via WhatsApp:</span>
+              <a href="https://wa.me/250798707702">+250 798 707 702</a>
+              <span className="separator">|</span>
+              <a href="https://wa.me/250789448107">+250 789 448 107</a>
+              <span className="separator">|</span>
+              <a href="https://wa.me/250780672644">+250 780 672 644</a>
+            </div>
+            <div className="cta-group">
+              <span>Fast delivery across Rwanda.</span>
+            </div>
+          </div>
+        </div>
+
         {/* Global Navigation Bar */}
         <nav className="navbar">
           <div className="container nav-container">
             <Link href="/" className="logo">BurungiHealth</Link>
             <div className="nav-links">
-              <Link href="/">Ahabanza</Link>
-              <a href="https://wa.me/250798707702" target="_blank" rel="noreferrer" className="nav-btn">Tuvugishe Kuri WhatsApp</a>
+              <Link href="/">Home</Link>
+              <a href="https://wa.me/250798707702" target="_blank" rel="noreferrer" className="nav-btn">WhatsApp Us</a>
             </div>
           </div>
         </nav>
