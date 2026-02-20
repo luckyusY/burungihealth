@@ -84,6 +84,82 @@ const BANNED_FILLER_PHRASES = [
     "revolutionary solution",
 ];
 
+const CONTEXT_KEYWORDS = {
+    sexual: [
+        "sexual",
+        "sex",
+        "bed",
+        "libido",
+        "erectile",
+        "ejaculation",
+        "performance",
+        "stamina",
+        "intimacy",
+        "penis",
+        "mens health",
+        "male enhancement",
+        "kurangiza",
+        "ubushake",
+        "igitsina",
+        "imyororokere",
+    ],
+    sports: [
+        "whey",
+        "protein",
+        "muscle",
+        "gym",
+        "workout",
+        "strength",
+        "endurance",
+        "recovery",
+        "fitness",
+        "sports",
+    ],
+    skinBeauty: [
+        "skin",
+        "acne",
+        "glow",
+        "beauty",
+        "cream",
+        "lotion",
+        "dark spots",
+        "wrinkle",
+        "hair",
+        "scalp",
+    ],
+    womens: [
+        "women",
+        "female",
+        "fertility",
+        "menstrual",
+        "ovulation",
+        "hormonal",
+        "vaginal",
+        "pregnancy",
+        "pms",
+    ],
+    weight: [
+        "weight",
+        "fat",
+        "slim",
+        "metabolism",
+        "appetite",
+        "obesity",
+        "body mass",
+    ],
+    energy: [
+        "energy",
+        "immunity",
+        "vitamin",
+        "fatigue",
+        "focus",
+        "stress",
+        "sleep",
+        "wellness",
+        "daily health",
+    ],
+};
+
 function hashString(value) {
     let hash = 2166136261;
     for (let i = 0; i < value.length; i++) {
@@ -258,6 +334,125 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
     };
 }
 
+function detectContextType({ product, category, department, tag }) {
+    const source = [
+        product?.name,
+        product?.slug,
+        product?.ai_context,
+        product?.description,
+        category?.name,
+        category?.slug,
+        department?.name,
+        department?.slug,
+        tag?.name,
+        tag?.slug,
+    ]
+        .filter(Boolean)
+        .join(" ");
+
+    const haystack = normalizeText(source);
+    const scores = Object.entries(CONTEXT_KEYWORDS).map(([type, keywords]) => {
+        const score = keywords.reduce((sum, keyword) => {
+            return sum + (haystack.includes(normalizeText(keyword)) ? 1 : 0);
+        }, 0);
+        return { type, score };
+    });
+
+    scores.sort((a, b) => b.score - a.score);
+    if (scores[0]?.score > 0) {
+        return scores[0].type;
+    }
+
+    return "general";
+}
+
+function extractProductDetailPoints(product) {
+    const raw = [product?.ai_context, product?.description]
+        .filter(Boolean)
+        .join(". ");
+
+    if (!raw) return [];
+
+    const unique = [];
+    const seen = new Set();
+
+    for (const part of raw.split(/[\n.;]/)) {
+        const clean = part.trim();
+        const normalized = normalizeText(clean);
+        if (clean.length < 14 || !normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        unique.push(clean);
+        if (unique.length >= 4) break;
+    }
+
+    return unique;
+}
+
+function buildSpecificityInstructions({ product, category, department, tag, location }) {
+    const contextType = detectContextType({ product, category, department, tag });
+    const detailPoints = extractProductDetailPoints(product);
+    const detailBlock = detailPoints.length
+        ? detailPoints.map((point, idx) => `${idx + 1}. ${point}`).join("\n")
+        : "No extra product details were provided. Use realistic assumptions and avoid generic filler.";
+
+    const sharedBase = `Use these product-specific details as anchors and naturally include at least 2 of them:\n${detailBlock}\n`;
+
+    if (contextType === "sexual") {
+        return `${sharedBase}
+This is a sexual-health context. Be explicit but tasteful:
+- Frame outcomes around real bedroom performance: stamina, confidence in bed, erection quality/control, partner intimacy.
+- Show one concrete before-vs-after scenario in a relationship context without graphic language.
+- Tie the mechanism of improvement to the specific keyword "${tag.name}" and this exact product.
+- Keep claims realistic and responsible: avoid guarantees or instant-cure promises.`;
+    }
+
+    if (contextType === "sports") {
+        return `${sharedBase}
+This is a sports/performance context:
+- Focus on training quality, recovery, strength/endurance, and consistency.
+- Include one realistic routine example (workout day, timing, hydration, recovery).
+- Avoid steroid-like or instant transformation claims.`;
+    }
+
+    if (contextType === "skinBeauty") {
+        return `${sharedBase}
+This is a skin/beauty context:
+- Focus on visible skin or appearance goals with realistic timelines.
+- Include one routine detail (frequency, patch-test, consistency).
+- Avoid miracle-cure language or guaranteed overnight results.`;
+    }
+
+    if (contextType === "womens") {
+        return `${sharedBase}
+This is a women's health context:
+- Use respectful, supportive tone and practical daily-life relevance.
+- Explain benefits around comfort, cycle/hormonal support, or wellbeing as relevant to the tag.
+- Keep claims responsible and avoid medical guarantees.`;
+    }
+
+    if (contextType === "weight") {
+        return `${sharedBase}
+This is a weight/metabolism context:
+- Emphasize appetite control, routine, activity, and consistency.
+- Include one realistic lifestyle detail (food habits, movement, hydration, sleep).
+- Avoid extreme or unrealistic weight-loss promises.`;
+    }
+
+    if (contextType === "energy") {
+        return `${sharedBase}
+This is an energy/wellness context:
+- Focus on day-to-day function: fatigue, concentration, resilience, routine.
+- Include one practical behavior detail that complements the product.
+- Keep outcomes realistic, not dramatic.`;
+    }
+
+    return `${sharedBase}
+Keep context specific to this product and condition:
+- Explain a realistic day-to-day problem and how this product helps with "${tag.name}".
+- Include one practical usage/compliance detail and one realistic expectation line.
+- Keep the story grounded in ${location.name} rather than generic statements.`;
+}
+
 function createStoryBank(contents) {
     const fingerprints3 = [];
     const fingerprints4 = [];
@@ -364,7 +559,7 @@ async function main() {
                 let finalOpening = "";
                 let finalEnding = "";
 
-                for (let attempt = 0; attempt < 5; attempt++) {
+                for (let attempt = 0; attempt < 3; attempt++) {
                     const profile = buildStoryProfile(slug, attempt);
                     const blockedOpenings = storyBank.openingHints.length
                         ? storyBank.openingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
@@ -381,8 +576,15 @@ async function main() {
                     const productContext = product.ai_context
                         ? `Product: ${product.name}. ${product.ai_context}`
                         : `Product: ${product.name}.`;
+                    const specificityInstructions = buildSpecificityInstructions({
+                        product,
+                        category: cat,
+                        department: dept,
+                        tag,
+                        location: loc,
+                    });
 
-                    const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${product.name}\nKeyword/problem: \"${tag.name}\"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp exactly once and include +250 798 707 702 exactly once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
+                    const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${product.name}\nKeyword/problem: \"${tag.name}\"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nContext specificity requirements:\n${specificityInstructions}\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp exactly once and include +250 798 707 702 exactly once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
 
                     const candidate = await generateStory(prompt, profile.temperature);
                     if (!candidate) continue;
@@ -406,7 +608,7 @@ async function main() {
                     const softReject = sim3 >= 0.53 || sim4 >= 0.37 || openingDuplicate || endingDuplicate || !quality.ok;
                     const hardReject = sim3 >= 0.57 || sim4 >= 0.41 || openingDuplicate || endingDuplicate || !quality.ok;
 
-                    if (softReject && attempt < 4) {
+                    if (softReject && attempt < 2) {
                         continue;
                     }
 

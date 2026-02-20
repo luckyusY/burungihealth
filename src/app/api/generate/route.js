@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
 export const maxDuration = 60;
+const SAFE_RUNTIME_MS = Number(process.env.GENERATE_SAFE_RUNTIME_MS || 9000);
+const MAX_ATTEMPTS_PER_STORY = 1;
 
 const STORY_OPENINGS = [
     "Start with a real-life frustration moment before naming the problem.",
@@ -69,6 +71,82 @@ const BANNED_FILLER_PHRASES = [
     "game changer",
     "revolutionary solution",
 ];
+
+const CONTEXT_KEYWORDS = {
+    sexual: [
+        "sexual",
+        "sex",
+        "bed",
+        "libido",
+        "erectile",
+        "ejaculation",
+        "performance",
+        "stamina",
+        "intimacy",
+        "penis",
+        "mens health",
+        "male enhancement",
+        "kurangiza",
+        "ubushake",
+        "igitsina",
+        "imyororokere",
+    ],
+    sports: [
+        "whey",
+        "protein",
+        "muscle",
+        "gym",
+        "workout",
+        "strength",
+        "endurance",
+        "recovery",
+        "fitness",
+        "sports",
+    ],
+    skinBeauty: [
+        "skin",
+        "acne",
+        "glow",
+        "beauty",
+        "cream",
+        "lotion",
+        "dark spots",
+        "wrinkle",
+        "hair",
+        "scalp",
+    ],
+    womens: [
+        "women",
+        "female",
+        "fertility",
+        "menstrual",
+        "ovulation",
+        "hormonal",
+        "vaginal",
+        "pregnancy",
+        "pms",
+    ],
+    weight: [
+        "weight",
+        "fat",
+        "slim",
+        "metabolism",
+        "appetite",
+        "obesity",
+        "body mass",
+    ],
+    energy: [
+        "energy",
+        "immunity",
+        "vitamin",
+        "fatigue",
+        "focus",
+        "stress",
+        "sleep",
+        "wellness",
+        "daily health",
+    ],
+};
 
 function hashString(value) {
     let hash = 2166136261;
@@ -244,6 +322,125 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
     };
 }
 
+function detectContextType({ product, category, department, tag }) {
+    const source = [
+        product?.name,
+        product?.slug,
+        product?.ai_context,
+        product?.description,
+        category?.name,
+        category?.slug,
+        department?.name,
+        department?.slug,
+        tag?.name,
+        tag?.slug,
+    ]
+        .filter(Boolean)
+        .join(" ");
+
+    const haystack = normalizeText(source);
+    const scores = Object.entries(CONTEXT_KEYWORDS).map(([type, keywords]) => {
+        const score = keywords.reduce((sum, keyword) => {
+            return sum + (haystack.includes(normalizeText(keyword)) ? 1 : 0);
+        }, 0);
+        return { type, score };
+    });
+
+    scores.sort((a, b) => b.score - a.score);
+    if (scores[0]?.score > 0) {
+        return scores[0].type;
+    }
+
+    return "general";
+}
+
+function extractProductDetailPoints(product) {
+    const raw = [product?.ai_context, product?.description]
+        .filter(Boolean)
+        .join(". ");
+
+    if (!raw) return [];
+
+    const unique = [];
+    const seen = new Set();
+
+    for (const part of raw.split(/[\n.;]/)) {
+        const clean = part.trim();
+        const normalized = normalizeText(clean);
+        if (clean.length < 14 || !normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        unique.push(clean);
+        if (unique.length >= 4) break;
+    }
+
+    return unique;
+}
+
+function buildSpecificityInstructions({ product, category, department, tag, location }) {
+    const contextType = detectContextType({ product, category, department, tag });
+    const detailPoints = extractProductDetailPoints(product);
+    const detailBlock = detailPoints.length
+        ? detailPoints.map((point, idx) => `${idx + 1}. ${point}`).join("\n")
+        : "No extra product details were provided. Use realistic assumptions and avoid generic filler.";
+
+    const sharedBase = `Use these product-specific details as anchors and naturally include at least 2 of them:\n${detailBlock}\n`;
+
+    if (contextType === "sexual") {
+        return `${sharedBase}
+This is a sexual-health context. Be explicit but tasteful:
+- Frame outcomes around real bedroom performance: stamina, confidence in bed, erection quality/control, partner intimacy.
+- Show one concrete before-vs-after scenario in a relationship context without graphic language.
+- Tie the mechanism of improvement to the specific keyword "${tag.name}" and this exact product.
+- Keep claims realistic and responsible: avoid guarantees or instant-cure promises.`;
+    }
+
+    if (contextType === "sports") {
+        return `${sharedBase}
+This is a sports/performance context:
+- Focus on training quality, recovery, strength/endurance, and consistency.
+- Include one realistic routine example (workout day, timing, hydration, recovery).
+- Avoid steroid-like or instant transformation claims.`;
+    }
+
+    if (contextType === "skinBeauty") {
+        return `${sharedBase}
+This is a skin/beauty context:
+- Focus on visible skin or appearance goals with realistic timelines.
+- Include one routine detail (frequency, patch-test, consistency).
+- Avoid miracle-cure language or guaranteed overnight results.`;
+    }
+
+    if (contextType === "womens") {
+        return `${sharedBase}
+This is a women's health context:
+- Use respectful, supportive tone and practical daily-life relevance.
+- Explain benefits around comfort, cycle/hormonal support, or wellbeing as relevant to the tag.
+- Keep claims responsible and avoid medical guarantees.`;
+    }
+
+    if (contextType === "weight") {
+        return `${sharedBase}
+This is a weight/metabolism context:
+- Emphasize appetite control, routine, activity, and consistency.
+- Include one realistic lifestyle detail (food habits, movement, hydration, sleep).
+- Avoid extreme or unrealistic weight-loss promises.`;
+    }
+
+    if (contextType === "energy") {
+        return `${sharedBase}
+This is an energy/wellness context:
+- Focus on day-to-day function: fatigue, concentration, resilience, routine.
+- Include one practical behavior detail that complements the product.
+- Keep outcomes realistic, not dramatic.`;
+    }
+
+    return `${sharedBase}
+Keep context specific to this product and condition:
+- Explain a realistic day-to-day problem and how this product helps with "${tag.name}".
+- Include one practical usage/compliance detail and one realistic expectation line.
+- Keep the story grounded in ${location.name} rather than generic statements.`;
+}
+
 function createStoryBank(contents) {
     const fingerprints3 = [];
     const fingerprints4 = [];
@@ -304,15 +501,19 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
 
-        const BATCH_LIMIT = body.limit || 3;
+        const BATCH_LIMIT = Math.max(1, Number(body.limit) || 1);
         const filterProductId = body.productId || null;
-        const filterTagIds = body.tagIds ? new Set(body.tagIds.map(String)) : null;
-        const filterLocationIds = body.locationIds ? new Set(body.locationIds.map(String)) : null;
+        const hasTagFilter = Array.isArray(body.tagIds);
+        const hasLocationFilter = Array.isArray(body.locationIds);
+        const filterTagIds = hasTagFilter ? new Set(body.tagIds.map(String).filter(Boolean)) : null;
+        const filterLocationIds = hasLocationFilter ? new Set(body.locationIds.map(String).filter(Boolean)) : null;
 
-        const { data: departments } = await supabase.from("departments").select("*");
-        const { data: categories } = await supabase.from("categories").select("*");
-        const { data: tags } = await supabase.from("tags").select("*");
-        const { data: locations } = await supabase.from("locations").select("*");
+        const [{ data: departments }, { data: categories }, { data: tags }, { data: locations }] = await Promise.all([
+            supabase.from("departments").select("*"),
+            supabase.from("categories").select("*"),
+            supabase.from("tags").select("*"),
+            supabase.from("locations").select("*"),
+        ]);
 
         let productQuery = supabase
             .from("products")
@@ -323,7 +524,10 @@ export async function POST(request) {
             productQuery = productQuery.eq("id", filterProductId);
         }
 
-        const { data: products } = await productQuery;
+        const { data: products, error: productsError } = await productQuery;
+        if (productsError) {
+            return new Response(JSON.stringify({ error: productsError.message }), { status: 500 });
+        }
 
         if (!products || products.length === 0) {
             return new Response(
@@ -335,12 +539,15 @@ export async function POST(request) {
         const { data: existingSlugs } = await supabase.from("seo_articles").select("slug");
         const existingSet = new Set((existingSlugs || []).map((row) => row.slug));
 
+        const startedAt = Date.now();
         let totalGenerated = 0;
         let remaining = 0;
+        let stoppedForRuntime = false;
 
+        productLoop:
         for (const product of products) {
-            const cat = categories.find((c) => c.id === product.category_id);
-            const dept = departments.find((d) => d.id === (product.department_id || cat?.department_id));
+            const cat = categories?.find((c) => c.id === product.category_id);
+            const dept = departments?.find((d) => d.id === (product.department_id || cat?.department_id));
             if (!cat || !dept) continue;
 
             const { data: productArticles } = await supabase
@@ -352,22 +559,28 @@ export async function POST(request) {
             const productContents = (productArticles || []).map((row) => row.content).filter(Boolean);
             const storyBank = createStoryBank(productContents);
 
-            const deptTags = tags.filter((tag) => {
+            const deptTags = (tags || []).filter((tag) => {
                 if (String(tag.department_id) !== String(dept.id)) return false;
-                if (filterTagIds && !filterTagIds.has(String(tag.id))) return false;
+                if (hasTagFilter && !filterTagIds.has(String(tag.id))) return false;
                 return true;
             });
 
             for (const tag of deptTags) {
-                for (const loc of locations) {
-                    if (filterLocationIds && !filterLocationIds.has(String(loc.id))) continue;
+                for (const loc of locations || []) {
+                    if (hasLocationFilter && !filterLocationIds.has(String(loc.id))) continue;
+
+                    if (Date.now() - startedAt > SAFE_RUNTIME_MS) {
+                        stoppedForRuntime = true;
+                        remaining = Math.max(remaining, 1);
+                        break productLoop;
+                    }
 
                     const slug = `${dept.slug}---${cat.slug}---${product.slug}---${tag.slug}-in-${loc.slug}`;
                     if (existingSet.has(slug)) continue;
 
                     if (totalGenerated >= BATCH_LIMIT) {
-                        remaining++;
-                        continue;
+                        remaining = Math.max(remaining, 1);
+                        break productLoop;
                     }
 
                     let generatedText = "";
@@ -376,7 +589,14 @@ export async function POST(request) {
                     let generatedOpening = "";
                     let generatedEnding = "";
 
-                    for (let attempt = 0; attempt < 5; attempt++) {
+                    for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_STORY; attempt++) {
+                        const runtimeLeft = SAFE_RUNTIME_MS - (Date.now() - startedAt);
+                        if (runtimeLeft < 3500) {
+                            stoppedForRuntime = true;
+                            remaining = Math.max(remaining, 1);
+                            break productLoop;
+                        }
+
                         const profile = buildStoryProfile(slug, attempt);
                         const blockedOpenings = storyBank.openingHints.length
                             ? storyBank.openingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
@@ -394,21 +614,40 @@ export async function POST(request) {
                             ? `Product: ${product.name}. ${product.ai_context}`
                             : `Product: ${product.name}.`;
 
-                        const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${product.name}\nKeyword/problem: \"${tag.name}\"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp exactly once and include +250 798 707 702 exactly once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
-
-                        const response = await openai.chat.completions.create({
-                            model: "gpt-4o-mini",
-                            messages: [
-                                {
-                                    role: "system",
-                                    content: "You write human-sounding local SEO stories with high variation and no templated AI phrasing.",
-                                },
-                                { role: "user", content: prompt },
-                            ],
-                            temperature: profile.temperature,
+                        const specificityInstructions = buildSpecificityInstructions({
+                            product,
+                            category: cat,
+                            department: dept,
+                            tag,
+                            location: loc,
                         });
 
-                        const candidate = response.choices[0]?.message?.content?.trim();
+                        const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${product.name}\nKeyword/problem: "${tag.name}"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nContext specificity requirements:\n${specificityInstructions}\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp exactly once and include +250 798 707 702 exactly once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
+
+                        let candidate = "";
+                        try {
+                            const requestTimeout = Math.max(2000, Math.min(6000, runtimeLeft - 1500));
+                            const response = await openai.chat.completions.create(
+                                {
+                                    model: "gpt-4o-mini",
+                                    messages: [
+                                        {
+                                            role: "system",
+                                            content: "You write human-sounding local SEO stories with high variation and no templated AI phrasing.",
+                                        },
+                                        { role: "user", content: prompt },
+                                    ],
+                                    temperature: profile.temperature,
+                                    max_tokens: 420,
+                                },
+                                { timeout: requestTimeout }
+                            );
+                            candidate = response.choices[0]?.message?.content?.trim() || "";
+                        } catch {
+                            if (attempt < MAX_ATTEMPTS_PER_STORY - 1) continue;
+                            break;
+                        }
+
                         if (!candidate) continue;
 
                         const candidateSet3 = toShingleSet(candidate, 3);
@@ -430,7 +669,7 @@ export async function POST(request) {
                         const softReject = sim3 >= 0.53 || sim4 >= 0.37 || openingDuplicate || endingDuplicate || !quality.ok;
                         const hardReject = sim3 >= 0.57 || sim4 >= 0.41 || openingDuplicate || endingDuplicate || !quality.ok;
 
-                        if (softReject && attempt < 4) {
+                        if (softReject && attempt < MAX_ATTEMPTS_PER_STORY - 1) {
                             continue;
                         }
 
@@ -448,7 +687,7 @@ export async function POST(request) {
                     }
 
                     if (!generatedText) {
-                        remaining++;
+                        remaining = Math.max(remaining, 1);
                         continue;
                     }
 
@@ -460,7 +699,7 @@ export async function POST(request) {
                     });
 
                     if (insertError) {
-                        remaining++;
+                        remaining = Math.max(remaining, 1);
                         continue;
                     }
 
@@ -483,7 +722,10 @@ export async function POST(request) {
             }
         }
 
-        return new Response(JSON.stringify({ success: true, count: totalGenerated, remaining }), { status: 200 });
+        return new Response(
+            JSON.stringify({ success: true, count: totalGenerated, remaining, stoppedForRuntime }),
+            { status: 200 }
+        );
     } catch (error) {
         const msg = error?.message || String(error) || "Unknown server error";
         return new Response(JSON.stringify({ error: msg }), { status: 500 });

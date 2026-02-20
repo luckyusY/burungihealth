@@ -153,7 +153,7 @@ export default function AdminDashboard() {
 
     function getSelectedTagIds(productId, deptTags) {
         const state = productGenState[productId];
-        if (!state || !state.selectedTagIds) return deptTags.map(t => String(t.id));
+        if (!state || !Object.prototype.hasOwnProperty.call(state, 'selectedTagIds')) return deptTags.map(t => String(t.id));
         return state.selectedTagIds;
     }
 
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
 
     function getSelectedLocationIds(productId) {
         const state = productGenState[productId];
-        if (!state || !state.selectedLocationIds) return locations.map(l => String(l.id));
+        if (!state || !Object.prototype.hasOwnProperty.call(state, 'selectedLocationIds')) return locations.map(l => String(l.id));
         return state.selectedLocationIds;
     }
 
@@ -183,8 +183,10 @@ export default function AdminDashboard() {
 
     async function triggerProductAI(product) {
         const deptTags = getProductDeptTags(product);
-        const selectedTagIds = getSelectedTagIds(product.id, deptTags);
-        const selectedLocationIds = getSelectedLocationIds(product.id);
+        const deptTagIdSet = new Set(deptTags.map(t => String(t.id)));
+        const locationIdSet = new Set(locations.map(l => String(l.id)));
+        const selectedTagIds = getSelectedTagIds(product.id, deptTags).map(String).filter(id => deptTagIdSet.has(id));
+        const selectedLocationIds = getSelectedLocationIds(product.id).map(String).filter(id => locationIdSet.has(id));
         if (selectedTagIds.length === 0) { alert('Select at least one keyword first.'); return; }
         if (selectedLocationIds.length === 0) { alert('Select at least one location first.'); return; }
         if (!product.slug) { alert('This product needs a slug before generating articles.'); return; }
@@ -197,7 +199,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 3, productId: product.id, tagIds: selectedTagIds, locationIds: selectedLocationIds })
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 1, productId: product.id, tagIds: selectedTagIds, locationIds: selectedLocationIds })
                 });
                 if (!res.ok) {
                     const text = await res.text();
@@ -227,7 +229,7 @@ export default function AdminDashboard() {
     }
 
     async function triggerAI() {
-        if (!confirm("Start generating new AI articles for all missing combinations?\n\nArticles are generated in batches of 10. Keep clicking until done.")) return;
+        if (!confirm("Start generating new AI articles for all missing combinations?\n\nArticles are generated in small batches to avoid timeout. Keep clicking until done.")) return;
         let total = 0;
         let batch = 1;
         while (true) {
@@ -236,7 +238,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 3 })
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 1 })
                 });
                 if (!res.ok) {
                     const text = await res.text();

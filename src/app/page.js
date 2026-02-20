@@ -6,16 +6,36 @@ import ContactTools from '@/components/ContactTools';
 import HeroParallaxScene from '@/components/HeroParallaxScene';
 import { CONTACT, buildCallUrl, buildWhatsAppUrl } from '@/lib/contact';
 
+export const revalidate = 60;
+
 export const metadata = {
   title: 'BurungiHealth | Umuti w\'ukuri ku buzima bw\'imyororokere',
   description: 'Gira ubuzima bwiza buzira umuze. Shakisha imiti igezweho yo kongera igitsina, kuvura kurangiza vuba no gushimisha umukunzi wawe.',
 }
 
 export default async function Home() {
-  const { data: products } = await supabase
+  let products = [];
+
+  const orderedRes = await supabase
     .from('products')
     .select('*')
-    .limit(4);
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  if (orderedRes.error) {
+    const fallbackRes = await supabase
+      .from('products')
+      .select('*')
+      .limit(6);
+
+    if (fallbackRes.error) {
+      console.error('Homepage products query failed:', fallbackRes.error.message);
+    } else {
+      products = fallbackRes.data || [];
+    }
+  } else {
+    products = orderedRes.data || [];
+  }
 
   const heroWhatsAppUrl = buildWhatsAppUrl(
     CONTACT.primaryPhoneDigits,
