@@ -23,7 +23,7 @@ export async function POST(request) {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
         }
 
-        const BATCH_LIMIT = body.limit || 10;
+        const BATCH_LIMIT = body.limit || 3;
         const filterProductId = body.productId || null;
         const filterTagIds = body.tagIds ? new Set(body.tagIds.map(String)) : null;
 

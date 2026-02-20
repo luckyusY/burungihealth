@@ -182,7 +182,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 10, productId: product.id, tagIds: selectedTagIds })
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 3, productId: product.id, tagIds: selectedTagIds })
                 });
                 if (!res.ok) {
                     const text = await res.text();
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
                 const res = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 10 })
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 3 })
                 });
                 if (!res.ok) {
                     const text = await res.text();
