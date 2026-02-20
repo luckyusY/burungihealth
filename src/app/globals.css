@@ -289,29 +289,69 @@ main {
   border-top: 1px solid var(--border-color);
   padding: 4rem 0 2rem;
   margin-top: 4rem;
-  text-align: center;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 3rem;
+  text-align: left;
+  margin-bottom: 2rem;
+}
+
+.footer-brand {
+  text-align: left;
 }
 
 .footer .logo {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.8rem;
+  margin-bottom: 0.75rem;
   display: block;
 }
 
-.footer-contacts {
-  margin: 2rem 0;
+.footer-nav-title {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.footer-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  color: var(--text-muted);
 }
 
-.footer-contacts strong {
-  color: var(--text-main);
+.footer-nav-link {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  transition: color 0.2s;
+  text-decoration: none;
+}
+
+.footer-nav-link:hover {
+  color: var(--primary);
+}
+
+.footer-contact-block {
+  text-align: left;
+}
+
+.footer-contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-muted);
 }
 
 .footer-contacts a {
   color: var(--primary);
+  font-size: 0.9rem;
 }
 
 .copyright {
@@ -319,7 +359,23 @@ main {
   color: var(--text-muted);
   border-top: 1px solid var(--border-color);
   padding-top: 2rem;
-  margin-top: 2.5rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    text-align: center;
+  }
+  .footer-brand,
+  .footer-contact-block {
+    text-align: center;
+  }
+  .footer-nav-list {
+    align-items: center;
+  }
 }
 
 /* Floating WhatsApp Button */

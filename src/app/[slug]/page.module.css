@@ -134,3 +134,71 @@
     color: var(--text-muted);
     font-size: 1.125rem;
 }
+
+/* ─── Breadcrumb ─── */
+.breadcrumb {
+    padding: 0.75rem 0;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.breadcrumb a { color: var(--primary); }
+.breadcrumb a:hover { text-decoration: underline; }
+.breadSep { margin: 0 0.5rem; opacity: 0.4; }
+
+/* ─── Header CTA button ─── */
+.headerCta {
+    display: inline-block;
+    margin-top: 1.5rem;
+    background: var(--primary);
+    color: black;
+    padding: 0.85rem 2rem;
+    border-radius: var(--radius-full);
+    font-weight: 700;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+.headerCta:hover { background: var(--primary-dark); transform: translateY(-2px); }
+
+/* ─── Product phone ─── */
+.productPhone {
+    font-size: 0.8rem;
+    color: var(--primary);
+    font-weight: 700;
+    margin-top: 0.5rem;
+    text-align: center;
+}
+
+/* ─── Related section ─── */
+.relatedSection {
+    padding: 3rem 0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+}
+.relatedTitle { font-size: 1.5rem; margin-bottom: 1.25rem; }
+.relatedGrid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.relatedCard {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: var(--transition);
+    text-transform: capitalize;
+}
+.relatedCard:hover { border-color: var(--primary); color: var(--primary); }
+
+/* ─── Back link ─── */
+.backLink { display: inline-block; color: var(--primary); font-weight: 600; margin-top: 1rem; }
+.backLink:hover { text-decoration: underline; }
+
+/* ─── Mobile ─── */
+@media (max-width: 768px) {
+    .grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+    .title { font-size: clamp(1.8rem, 8vw, 3rem); }
+    .headerCta { width: 100%; text-align: center; }
+}
+@media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }

@@ -1,6 +1,7 @@
 import { Outfit, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Link from 'next/link';
+import { supabase } from '../lib/supabase';
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -13,11 +14,17 @@ const playfair = Playfair_Display({
 });
 
 export const metadata = {
-  title: "BurungiHealth | Umuti wizewe",
-  description: "Ibisubizo byizewe ku bibazo by'imyororokere",
+  title: "BurungiHealth | Trusted Health Products in Rwanda",
+  description: "Shop trusted health & wellness products from BurungiHealth. Fast, discreet delivery across Rwanda. Order via WhatsApp +250 798 707 702.",
 };
 
-export default function RootLayout({ children }) {
+async function getFooterCategories() {
+  const { data } = await supabase.from('categories').select('name, slug').order('name').limit(10);
+  return data || [];
+}
+
+export default async function RootLayout({ children }) {
+  const footerCategories = await getFooterCategories();
   return (
     <html lang="rw">
       <body className={`${outfit.variable} ${playfair.variable}`}>
@@ -54,12 +61,33 @@ export default function RootLayout({ children }) {
         {/* Global Footer */}
         <footer className="footer">
           <div className="container">
-            <h3 className="logo">BurungiHealth</h3>
-            <p>Ibisubizo by'ukuri ku buzima bwawe.</p>
-            <div className="footer-contacts">
-              <p><strong>WhatsApp 1:</strong> <a href="https://wa.me/250798707702">+250 798 707 702</a></p>
-              <p><strong>WhatsApp 2:</strong> <a href="https://wa.me/250789448107">+250 789 448 107</a></p>
-              <p><strong>WhatsApp 3:</strong> <a href="https://wa.me/250780672644">+250 780 672 644</a></p>
+            <div className="footer-grid">
+              <div className="footer-brand">
+                <h3 className="logo">BurungiHealth</h3>
+                <p style={{ color: 'var(--text-muted)', maxWidth: '280px', margin: '0 auto', lineHeight: '1.6' }}>
+                  Trusted health &amp; wellness products. Fast, discreet delivery across Rwanda.
+                </p>
+              </div>
+              {footerCategories.length > 0 && (
+                <div className="footer-nav">
+                  <h4 className="footer-nav-title">Shop by Category</h4>
+                  <ul className="footer-nav-list">
+                    {footerCategories.map(cat => (
+                      <li key={cat.slug}>
+                        <Link href={`/category/${cat.slug}`} className="footer-nav-link">{cat.name}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <div className="footer-contact-block">
+                <h4 className="footer-nav-title">Order via WhatsApp</h4>
+                <div className="footer-contacts">
+                  <p><a href="https://wa.me/250798707702">+250 798 707 702</a></p>
+                  <p><a href="https://wa.me/250789448107">+250 789 448 107</a></p>
+                  <p><a href="https://wa.me/250780672644">+250 780 672 644</a></p>
+                </div>
+              </div>
             </div>
             <p className="copyright">&copy; {new Date().getFullYear()} BurungiHealth. All rights reserved.</p>
           </div>
