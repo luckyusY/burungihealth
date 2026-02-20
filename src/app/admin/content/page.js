@@ -193,6 +193,7 @@ export default function AdminDashboard() {
 
         let total = 0;
         let batch = 1;
+        let noProgressBatches = 0;
         while (true) {
             setProductStatus(product.id, `Batch ${batch} — ${total} done...`);
             try {
@@ -214,11 +215,23 @@ export default function AdminDashboard() {
                     break;
                 }
                 total += data.count;
-                if (data.count === 0 || !data.remaining) {
+                if (!data.remaining) {
                     setProductStatus(product.id, `✓ Done — ${total} new articles`);
                     fetchAllData();
                     break;
                 }
+
+                if (data.count === 0 && data.remaining > 0) {
+                    noProgressBatches++;
+                    if (noProgressBatches >= 6) {
+                        setProductStatus(product.id, `⚠ Stopped — no progress after ${noProgressBatches} batches`);
+                        break;
+                    }
+                    batch++;
+                    continue;
+                }
+
+                noProgressBatches = 0;
                 batch++;
             } catch (e) {
                 alert(`Request failed: ${e.message}\n\nCheck OPENAI_API_KEY is set in Vercel environment variables.`);
@@ -232,6 +245,7 @@ export default function AdminDashboard() {
         if (!confirm("Start generating new AI articles for all missing combinations?\n\nArticles are generated in small batches to avoid timeout. Keep clicking until done.")) return;
         let total = 0;
         let batch = 1;
+        let noProgressBatches = 0;
         while (true) {
             setGenStatus(`Batch ${batch} — generated ${total} so far...`);
             try {
@@ -251,11 +265,23 @@ export default function AdminDashboard() {
                     break;
                 }
                 total += data.count;
-                if (data.count === 0 || data.remaining === 0) {
+                if (data.remaining === 0) {
                     alert(`Done! Generated ${total} new articles total. ${data.message || ''}`);
                     fetchAllData();
                     break;
                 }
+
+                if (data.count === 0 && data.remaining > 0) {
+                    noProgressBatches++;
+                    if (noProgressBatches >= 6) {
+                        alert(`Generation paused: no progress after ${noProgressBatches} batches. Try again, or reduce selected keywords/locations.`);
+                        break;
+                    }
+                    batch++;
+                    continue;
+                }
+
+                noProgressBatches = 0;
                 batch++;
             } catch (e) {
                 alert(`Request failed: ${e.message}\n\nCheck that OPENAI_API_KEY is set in your Vercel environment variables.`);

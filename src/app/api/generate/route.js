@@ -3,7 +3,7 @@ import OpenAI from "openai";
 
 export const maxDuration = 60;
 const SAFE_RUNTIME_MS = Number(process.env.GENERATE_SAFE_RUNTIME_MS || 9000);
-const MAX_ATTEMPTS_PER_STORY = 1;
+const MAX_ATTEMPTS_PER_STORY = 2;
 
 const STORY_OPENINGS = [
     "Start with a real-life frustration moment before naming the problem.",
