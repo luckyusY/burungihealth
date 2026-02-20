@@ -2,6 +2,8 @@ import { generateCategoryCombos, getComboData, getRelatedArticles, formatSlugTit
 import Image from 'next/image';
 import Link from 'next/link';
 import styles from './page.module.css';
+import ContactTools from '@/components/ContactTools';
+import { CONTACT, buildCallUrl, buildWhatsAppUrl } from '@/lib/contact';
 
 export const revalidate = 60;
 
@@ -18,10 +20,10 @@ export async function generateMetadata({ params }) {
 
     if (!data) return { title: 'Not Found' };
 
-    const { department, category, tag, location, product } = data;
+    const { category, tag, location, product } = data;
     const title = `${product.name} for ${tag.name} in ${location.name} | BurungiHealth`;
     const synonymPart = tag.synonyms ? ` Also known as: ${tag.synonyms}.` : '';
-    const description = `Looking for ${tag.name.toLowerCase()} help in ${location.name}? ${product.name} from BurungiHealth — trusted, fast & discreet delivery across Rwanda.${synonymPart}`;
+    const description = `Looking for ${tag.name.toLowerCase()} help in ${location.name}? ${product.name} from BurungiHealth: trusted, fast, discreet delivery across Rwanda.${synonymPart}`;
 
     return {
         title,
@@ -40,34 +42,33 @@ export default async function ProgrammaticPage({ params }) {
     const { department, category, tag, location, product, products, article } = data;
     const related = await getRelatedArticles(slug, tag.slug, product.slug, 5);
 
-    // JSON-LD: BreadcrumbList + Product ItemList
     const jsonLd = {
         '@context': 'https://schema.org',
         '@graph': [
             {
                 '@type': 'BreadcrumbList',
-                'itemListElement': [
-                    { '@type': 'ListItem', 'position': 1, 'name': 'Home', 'item': SITE_URL },
-                    { '@type': 'ListItem', 'position': 2, 'name': category.name, 'item': `${SITE_URL}/category/${category.slug}` },
-                    { '@type': 'ListItem', 'position': 3, 'name': `${tag.name} in ${location.name}` },
+                itemListElement: [
+                    { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+                    { '@type': 'ListItem', position: 2, name: category.name, item: `${SITE_URL}/category/${category.slug}` },
+                    { '@type': 'ListItem', position: 3, name: `${tag.name} in ${location.name}` },
                 ]
             },
             products.length > 0 && {
                 '@type': 'ItemList',
-                'itemListElement': products.map((product, i) => ({
+                itemListElement: products.map((productItem, i) => ({
                     '@type': 'ListItem',
-                    'position': i + 1,
-                    'item': {
+                    position: i + 1,
+                    item: {
                         '@type': 'Product',
-                        'name': product.name,
-                        'image': product.image_url || '',
-                        'description': `Best ${tag.name.toLowerCase()} solution in ${location.name}.`,
-                        'offers': {
+                        name: productItem.name,
+                        image: productItem.image_url || '',
+                        description: `Best ${tag.name.toLowerCase()} solution in ${location.name}.`,
+                        offers: {
                             '@type': 'Offer',
-                            'price': product.price || 0,
-                            'priceCurrency': 'RWF',
-                            'availability': 'https://schema.org/InStock',
-                            'seller': { '@type': 'Organization', 'name': 'BurungiHealth' }
+                            price: productItem.price || 0,
+                            priceCurrency: 'RWF',
+                            availability: 'https://schema.org/InStock',
+                            seller: { '@type': 'Organization', name: 'BurungiHealth' }
                         }
                     }
                 }))
@@ -75,91 +76,107 @@ export default async function ProgrammaticPage({ params }) {
         ].filter(Boolean)
     };
 
+    const headerOrderUrl = buildWhatsAppUrl(
+        CONTACT.primaryPhoneDigits,
+        `Hello, I want ${product.name} for ${tag.name} in ${location.name}.`
+    );
+
     return (
         <>
             <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
             <main className={styles.main}>
 
-                {/* Breadcrumb */}
                 <nav className={styles.breadcrumb} aria-label="Breadcrumb">
                     <div className="container">
                         <Link href="/">Home</Link>
-                        <span className={styles.breadSep}>›</span>
+                        <span className={styles.breadSep}>{'>'}</span>
                         <Link href={`/category/${category.slug}`}>{category.name}</Link>
-                        <span className={styles.breadSep}>›</span>
+                        <span className={styles.breadSep}>{'>'}</span>
                         <span>{tag.name} in {location.name}</span>
                     </div>
                 </nav>
 
-                {/* Header */}
                 <header className={styles.header}>
-                    <div className="container" style={{ padding: '0 1rem' }}>
-                        <span className="badge">{department.name}</span>
-                        <h1 className={styles.title}>
-                            <span className={styles.highlight}>{product.name}</span><br />
-                            for {tag.name} in <span className={styles.highlight}>{location.name}</span>
-                        </h1>
-                        <p className={styles.description}>
-                            Looking for a trusted <strong>{tag.name.toLowerCase()}</strong> solution in <strong>{location.name}</strong>?
-                            <strong> {product.name}</strong> from BurungiHealth — fast delivery, 100% discreet.
-                        </p>
-                        {tag.synonyms && (
-                            <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.45)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                                Also searched as: {tag.synonyms}
+                    <div className={`container ${styles.headerInner}`}>
+                        <div>
+                            <span className="badge">{department.name}</span>
+                            <h1 className={styles.title}>
+                                <span className={styles.highlight}>{product.name}</span><br />
+                                for {tag.name} in <span className={styles.highlight}>{location.name}</span>
+                            </h1>
+                            <p className={styles.description}>
+                                Looking for a trusted <strong>{tag.name.toLowerCase()}</strong> solution in <strong>{location.name}</strong>?
+                                <strong> {product.name}</strong> from BurungiHealth offers discreet delivery and quick support.
                             </p>
-                        )}
-                        <a href="https://wa.me/250798707702" target="_blank" rel="noreferrer" className={styles.headerCta}>
-                            Order on WhatsApp — +250 798 707 702
-                        </a>
+                            {tag.synonyms && (
+                                <p className={styles.synonyms}>
+                                    Also searched as: {tag.synonyms}
+                                </p>
+                            )}
+                            <div className={styles.headerActions}>
+                                <a href={headerOrderUrl} target="_blank" rel="noreferrer" className={styles.headerCta}>
+                                    Order on WhatsApp - {CONTACT.primaryPhoneDisplay}
+                                </a>
+                                <a href={CONTACT.address.mapUrl} target="_blank" rel="noreferrer" className={styles.headerGhost}>
+                                    View Address
+                                </a>
+                            </div>
+                        </div>
+                        <ContactTools compact className={styles.headerContact} productName={product.name} />
                     </div>
                 </header>
 
-                {/* Products */}
                 <section className={`section ${styles.productsSection}`}>
-                    <div className="container" style={{ padding: '0 1rem' }}>
-                        <h2 style={{ marginBottom: '2rem', fontSize: '1.75rem' }}>
+                    <div className="container">
+                        <h2 className={styles.sectionTitle}>
                             {category.name} for {tag.name}
                         </h2>
                         <div className={styles.grid}>
                             {products.length === 0 ? (
                                 <p style={{ color: 'var(--text-muted)' }}>
-                                    Contact us via WhatsApp for product recommendations for {tag.name} in {location.name}.
+                                    Contact us via WhatsApp for recommendations for {tag.name} in {location.name}.
                                 </p>
                             ) : (
-                                products.map(product => (
-                                    <article key={product.id} className={styles.productCard}>
+                                products.map((item) => (
+                                    <article key={item.id} className={styles.productCard}>
                                         <div className={styles.imageWrap}>
                                             <Image
-                                                src={product.image_url || 'https://via.placeholder.com/400x400?text=BurungiHealth'}
-                                                alt={product.name}
+                                                src={item.image_url || 'https://via.placeholder.com/400x400?text=BurungiHealth'}
+                                                alt={item.name}
                                                 fill
                                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                                 className={styles.productImg}
                                             />
                                         </div>
                                         <div className={styles.productInfo}>
-                                            <h3 className={styles.productName}>{product.name}</h3>
-                                            {product.problems_solved && (
+                                            <h3 className={styles.productName}>{item.name}</h3>
+                                            {item.problems_solved && (
                                                 <div className={styles.problemChips}>
-                                                    {product.problems_solved.split(',').map(p => p.trim()).filter(Boolean).map(p => (
-                                                        <span key={p} className={styles.problemChip}>✓ {p}</span>
+                                                    {item.problems_solved.split(',').map((p) => p.trim()).filter(Boolean).map((p) => (
+                                                        <span key={p} className={styles.problemChip}>+ {p}</span>
                                                     ))}
                                                 </div>
                                             )}
                                             <div className={styles.metaRow}>
                                                 <span className={styles.price}>
-                                                    {product.price != null ? Number(product.price).toLocaleString() : 'Ask'} RWF
+                                                    {item.price != null ? Number(item.price).toLocaleString() : 'Ask'} {item.price != null ? 'RWF' : ''}
                                                 </span>
+                                            </div>
+                                            <div className={styles.productActions}>
                                                 <a
-                                                    href={`https://wa.me/250798707702?text=Hello, I want to order: ${encodeURIComponent(product.name)}`}
+                                                    href={buildWhatsAppUrl(CONTACT.primaryPhoneDigits, `Hello, I want to order: ${item.name}`)}
                                                     className={styles.buyBtn}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                 >
-                                                    Buy Now
+                                                    Buy on WhatsApp
+                                                </a>
+                                                <a href={buildCallUrl(CONTACT.primaryPhoneDigits)} className={styles.callBtn}>
+                                                    Call
                                                 </a>
                                             </div>
-                                            <p className={styles.productPhone}>📞 +250 798 707 702</p>
+                                            <p className={styles.productPhone}>{CONTACT.primaryPhoneDisplay}</p>
+                                            <p className={styles.productAddress}>{CONTACT.address.title}</p>
                                         </div>
                                     </article>
                                 ))
@@ -168,23 +185,21 @@ export default async function ProgrammaticPage({ params }) {
                     </div>
                 </section>
 
-                {/* SEO Article */}
                 {article && (
                     <section className={`section ${styles.seoContent}`}>
-                        <div className="container" style={{ maxWidth: '800px', margin: '0 auto', padding: '0 1.5rem', lineHeight: '1.8' }}>
+                        <div className="container" style={{ maxWidth: '800px', margin: '0 auto', lineHeight: '1.8' }}>
                             <h2>Why BurungiHealth for {tag.name} in {location.name}?</h2>
                             <p>{article}</p>
                         </div>
                     </section>
                 )}
 
-                {/* Internal Links — Related Pages */}
                 {related.length > 0 && (
                     <section className={styles.relatedSection}>
-                        <div className="container" style={{ padding: '0 1rem' }}>
+                        <div className="container">
                             <h2 className={styles.relatedTitle}>Related Guides</h2>
                             <div className={styles.relatedGrid}>
-                                {related.map(r => (
+                                {related.map((r) => (
                                     <Link key={r.slug} href={`/${r.slug}`} className={styles.relatedCard}>
                                         {formatSlugTitle(r.slug)}
                                     </Link>
@@ -194,10 +209,9 @@ export default async function ProgrammaticPage({ params }) {
                     </section>
                 )}
 
-                {/* Back to category */}
                 <div className="container" style={{ padding: '0 1rem 3rem', textAlign: 'center' }}>
                     <Link href={`/category/${category.slug}`} className={styles.backLink}>
-                        ← Browse all {category.name}
+                        {'<'} Browse all {category.name}
                     </Link>
                 </div>
 

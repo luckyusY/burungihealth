@@ -15,11 +15,11 @@ export async function generateCategoryCombos() {
 
     const combos = [];
     for (const product of products) {
-        const cat = categories.find(c => c.id === product.category_id);
-        const dept = departments.find(d => d.id === (product.department_id || cat?.department_id));
+        const cat = categories.find((c) => c.id === product.category_id);
+        const dept = departments.find((d) => d.id === (product.department_id || cat?.department_id));
         if (!cat || !dept || !product.slug) continue;
 
-        const deptTags = tags.filter(t => t.department_id === dept.id);
+        const deptTags = tags.filter((t) => t.department_id === dept.id);
         for (const tag of deptTags) {
             for (const loc of locations) {
                 combos.push({
@@ -52,7 +52,7 @@ export async function getComboData(comboSlug) {
         supabase.from('tags').select('id, name, slug, synonyms').eq('slug', tagSlug).single(),
         supabase.from('locations').select('*').eq('slug', locationSlug).single(),
         supabase.from('products').select('*').eq('slug', productSlug).single(),
-        supabase.from('seo_articles').select('content').eq('slug', comboSlug).eq('is_approved', true).single()
+        supabase.from('seo_articles').select('content').eq('slug', comboSlug).eq('is_approved', true).single(),
     ]);
 
     const department = deptReq.data;
@@ -64,16 +64,14 @@ export async function getComboData(comboSlug) {
 
     if (!department || !category || !tag || !location || !product) return null;
 
-    // Show the specific product + others in same category
     const { data: relatedProducts } = await supabase
         .from('products')
         .select('*')
         .eq('category_id', category.id);
 
-    // Put the featured product first
     const products = [
         product,
-        ...(relatedProducts || []).filter(p => p.id !== product.id)
+        ...(relatedProducts || []).filter((p) => p.id !== product.id),
     ];
 
     return {
@@ -81,9 +79,9 @@ export async function getComboData(comboSlug) {
         category,
         tag,
         location,
-        product,   // the specific product this page is about
+        product,
         products,
-        article
+        article,
     };
 }
 
@@ -96,21 +94,31 @@ export async function getCategoryData(slug) {
 
     if (!category) return null;
 
+    const { data: department } = await supabase
+        .from('departments')
+        .select('id, name, slug')
+        .eq('id', category.department_id)
+        .single();
+
     const { data: products } = await supabase
         .from('products')
         .select('*')
         .eq('category_id', category.id);
 
-    // Fetch tags scoped to this category's department for internal linking
     const { data: tags } = await supabase
         .from('tags')
         .select('name, slug')
         .eq('department_id', category.department_id)
         .limit(6);
-    const { data: locations } = await supabase.from('locations').select('name, slug').limit(4);
+
+    const { data: locations } = await supabase
+        .from('locations')
+        .select('name, slug')
+        .limit(4);
 
     return {
         category,
+        department: department || null,
         products: products || [],
         tags: tags || [],
         locations: locations || [],
@@ -119,7 +127,6 @@ export async function getCategoryData(slug) {
 
 // For internal linking: get approved articles related to this page
 export async function getRelatedArticles(currentSlug, tagSlug, productSlug, limit = 5) {
-    // Same tag, different product or location
     const { data: sameTag } = await supabase
         .from('seo_articles')
         .select('slug')
@@ -128,7 +135,6 @@ export async function getRelatedArticles(currentSlug, tagSlug, productSlug, limi
         .neq('slug', currentSlug)
         .limit(limit);
 
-    // Same product, different tag
     const { data: sameProd } = await supabase
         .from('seo_articles')
         .select('slug')
@@ -139,11 +145,14 @@ export async function getRelatedArticles(currentSlug, tagSlug, productSlug, limi
 
     const all = [...(sameTag || []), ...(sameProd || [])];
     const seen = new Set([currentSlug]);
-    return all.filter(a => {
-        if (seen.has(a.slug)) return false;
-        seen.add(a.slug);
-        return true;
-    }).slice(0, limit);
+
+    return all
+        .filter((row) => {
+            if (seen.has(row.slug)) return false;
+            seen.add(row.slug);
+            return true;
+        })
+        .slice(0, limit);
 }
 
 // Format a slug into readable link text
@@ -151,11 +160,12 @@ export function formatSlugTitle(slug) {
     try {
         const parts = slug.split('-in-');
         if (parts.length !== 2) return slug;
+
         const location = parts[1].replace(/-/g, ' ');
         const mainParts = parts[0].split('---');
         const tag = (mainParts[3] || mainParts[2] || '').replace(/-/g, ' ');
         const product = (mainParts[2] || '').replace(/-/g, ' ');
-        return `${tag} — ${product} in ${location}`;
+        return `${tag} - ${product} in ${location}`;
     } catch {
         return slug;
     }

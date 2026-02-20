@@ -1,0 +1,85 @@
+.panel {
+    position: relative;
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    background: linear-gradient(140deg, rgba(212, 175, 55, 0.12), rgba(10, 10, 10, 0.88));
+    border-radius: 18px;
+    padding: 1.1rem 1.15rem;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.35);
+}
+
+.compact {
+    padding: 0.9rem 0.95rem;
+}
+
+.eyebrow {
+    margin: 0 0 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 600;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.18rem;
+    line-height: 1.2;
+}
+
+.addressLine {
+    margin: 0.45rem 0 0.15rem;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 0.92rem;
+}
+
+.addressSubline {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 0.82rem;
+}
+
+.phone {
+    display: inline-block;
+    margin-top: 0.6rem;
+    color: #f8d873;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.actions {
+    margin-top: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.primaryAction,
+.secondaryAction {
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.44rem 0.72rem;
+    border: 1px solid transparent;
+    transition: all 0.25s ease;
+}
+
+.primaryAction {
+    background: #d4af37;
+    color: #111;
+}
+
+.primaryAction:hover {
+    background: #c09a2c;
+    transform: translateY(-1px);
+}
+
+.secondaryAction {
+    background: rgba(255, 255, 255, 0.04);
+    color: #f3f3f3;
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+.secondaryAction:hover {
+    border-color: rgba(212, 175, 55, 0.65);
+    color: #f8d873;
+}

@@ -2,6 +2,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import styles from './page.module.css';
 import { supabase } from '../lib/supabase';
+import ContactTools from '@/components/ContactTools';
+import HeroParallaxScene from '@/components/HeroParallaxScene';
+import { CONTACT, buildCallUrl, buildWhatsAppUrl } from '@/lib/contact';
 
 export const metadata = {
   title: 'BurungiHealth | Umuti w\'ukuri ku buzima bw\'imyororokere',
@@ -9,31 +12,42 @@ export const metadata = {
 }
 
 export default async function Home() {
-  // Fetch products for the "Featured" section
   const { data: products } = await supabase
     .from('products')
     .select('*')
     .limit(4);
 
+  const heroWhatsAppUrl = buildWhatsAppUrl(
+    CONTACT.primaryPhoneDigits,
+    'Hello, I want help choosing the right product.'
+  );
+
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
+        <HeroParallaxScene />
         <div className={`container ${styles.heroContainer}`}>
-          <div className={styles.heroContent}>
-            <span className={`badge ${styles.fadeUp}`}>BurungiHealth</span>
-            <h1 className={styles.title}>
-              <span className={styles.fadeUpDelay1}>Ubuzima bwiza,</span>
-              <br />
-              <span className={styles.fadeUpDelay2}>Ikizere cyuzuye.</span>
-            </h1>
-            <p className={`${styles.subtitle} ${styles.fadeUpDelay3}`}>
-              Shaka ibisubizo nyabyo ku bibazo by'imyororokere. Gukira kurangiza vuba, kubura ubushake, cyangwa kongera igitsina byose birashoboka ukoresheje inyongeramusaruro zizewe nka Maxman.
-            </p>
-            <div className={`${styles.actions} ${styles.fadeUpDelay4}`}>
-              <a href="https://wa.me/250798707702" className={styles.primaryBtn}>
-                Tuvugishe Kuri WhatsApp
-              </a>
+          <div className={styles.heroGrid}>
+            <div className={styles.heroContent}>
+              <span className={`badge ${styles.fadeUp}`}>BurungiHealth</span>
+              <h1 className={styles.title}>
+                <span className={styles.fadeUpDelay1}>Ubuzima bwiza,</span>
+                <br />
+                <span className={styles.fadeUpDelay2}>Ikizere cyuzuye.</span>
+              </h1>
+              <p className={`${styles.subtitle} ${styles.fadeUpDelay3}`}>
+                Shaka ibisubizo nyabyo ku bibazo by&apos;imyororokere. Gukira kurangiza vuba, kubura ubushake, cyangwa kongera igitsina byose birashoboka ukoresheje inyongeramusaruro zizewe nka Maxman.
+              </p>
+              <div className={`${styles.actions} ${styles.fadeUpDelay4}`}>
+                <a href={heroWhatsAppUrl} className={styles.primaryBtn} target="_blank" rel="noreferrer">
+                  Tuvugishe Kuri WhatsApp
+                </a>
+                <a href={CONTACT.address.mapUrl} className={styles.secondaryBtn} target="_blank" rel="noreferrer">
+                  Reba Address
+                </a>
+              </div>
             </div>
+            <ContactTools className={`${styles.heroContactCard} ${styles.fadeUpDelay4}`} />
           </div>
         </div>
       </div>
@@ -80,7 +94,8 @@ export default async function Home() {
             <h2 className={styles.sectionTitle}>Ibicuruzwa Byatoranyijwe</h2>
             <div className={styles.productGrid}>
               {products.map((product) => (
-                <div key={product.id} className={styles.productCard}>
+                <article key={product.id} className={styles.productCard}>
+                  <span className={styles.productBadge}>Fast Delivery</span>
                   <div className={styles.productImgWrap}>
                     <Image
                       src={product.image_url || 'https://via.placeholder.com/300'}
@@ -90,19 +105,34 @@ export default async function Home() {
                     />
                   </div>
                   <div className={styles.productInfo}>
+                    <p className={styles.productMeta}>Discreet packaging available</p>
                     <h3 className={styles.productName}>{product.name}</h3>
                     {product.problems_solved && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.6rem' }}>
-                        {product.problems_solved.split(',').map(p => p.trim()).filter(Boolean).map(p => (
-                          <span key={p} style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', color: '#d4af37', fontSize: '0.7rem', fontWeight: 600, padding: '0.18rem 0.5rem', borderRadius: '4px' }}>✓ {p}</span>
+                      <div className={styles.problemChips}>
+                        {product.problems_solved.split(',').map((p) => p.trim()).filter(Boolean).map((p) => (
+                          <span key={p} className={styles.problemChip}>+ {p}</span>
                         ))}
                       </div>
                     )}
-                    <p className={styles.productPrice}>{product.price != null ? Number(product.price).toLocaleString() : 'Ask for Price'} {product.price != null ? 'RWF' : ''}</p>
-                    <a href={`https://wa.me/250798707702?text=Hello, I want to order: ${encodeURIComponent(product.name)}`} className={styles.buyBtn}>Buy Now</a>
-                    <p className={styles.productPhone}>📞 +250 798 707 702</p>
+                    <p className={styles.productPrice}>
+                      {product.price != null ? Number(product.price).toLocaleString() : 'Ask for Price'} {product.price != null ? 'RWF' : ''}
+                    </p>
+                    <div className={styles.productActions}>
+                      <a
+                        href={buildWhatsAppUrl(CONTACT.primaryPhoneDigits, `Hello, I want to order: ${product.name}`)}
+                        className={styles.buyBtn}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Buy on WhatsApp
+                      </a>
+                      <a href={buildCallUrl(CONTACT.primaryPhoneDigits)} className={styles.callBtn}>
+                        Call
+                      </a>
+                    </div>
+                    <p className={styles.productAddress}>{CONTACT.address.title}</p>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           </div>

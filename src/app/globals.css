@@ -177,6 +177,12 @@ button {
   white-space: nowrap;
 }
 
+.top-phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .top-bar a {
   color: black;
   text-decoration: underline;
@@ -192,8 +198,18 @@ button {
 }
 
 .cta-group {
-  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   white-space: nowrap;
+}
+
+.address-label {
+  font-weight: 700;
+}
+
+.address-link {
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
@@ -206,6 +222,12 @@ button {
   }
   .info-label { display: none; }
   .cta-group { display: none; }
+  .top-phone:not(:first-child) {
+    display: none;
+  }
+  .separator {
+    display: none;
+  }
 }
 
 /* Global Navbar */
@@ -347,6 +369,17 @@ main {
   flex-direction: column;
   gap: 0.4rem;
   color: var(--text-muted);
+}
+
+.footer-address-title {
+  color: var(--text-main);
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.footer-address-line {
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 
 .footer-contacts a {
