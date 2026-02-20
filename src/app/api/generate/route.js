@@ -62,11 +62,8 @@ const STORY_CLOSINGS = [
 const BANNED_FILLER_PHRASES = [
     "in today's fast paced world",
     "it is important to note that",
-    "when it comes to",
-    "at the end of the day",
     "without further ado",
     "as we all know",
-    "whether you are",
     "unlock your full potential",
     "game changer",
     "revolutionary solution",
@@ -292,23 +289,33 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
 
     const fillerFound = BANNED_FILLER_PHRASES.find((phrase) => normalized.includes(phrase));
     const whatsappCount = countMatches(text.toLowerCase(), /whatsapp/g);
-    const phoneCount = countMatches(text, /\+?\s*250[\s-]*798[\s-]*707[\s-]*702/g);
+    // Phone check: just look for the core digits loosely (AI formats vary)
+    const phoneCount = countMatches(text.replace(/[\s\-()]/g, ""), /250798707702/g);
 
-    const reasons = [];
+    // First significant word of each name for robust matching (handles plurals, paraphrasing)
+    const productFirstWord = tokenize(productName)[0] || "";
+    const tagFirstWord = tokenize(tagName)[0] || "";
+    const locationFirstWord = tokenize(locationName)[0] || "";
 
-    if (words.length < 120 || words.length > 340) reasons.push("word_count");
-    if (sentenceLengths.length < 3) reasons.push("too_few_sentences");
-    if (uniqueRatio < 0.32) reasons.push("low_lexical_diversity");
-    if (fillerFound) reasons.push(`filler_phrase:${fillerFound}`);
-    if (!containsPhrase(normalized, productName)) reasons.push("missing_product");
-    if (!containsPhrase(normalized, tagName)) reasons.push("missing_tag");
-    if (!containsPhrase(normalized, locationName)) reasons.push("missing_location");
-    if (whatsappCount < 1) reasons.push("whatsapp_count");
-    if (phoneCount < 1) reasons.push("phone_count");
+    // Hard failures — always reject regardless of attempt
+    const hardReasons = [];
+    if (words.length < 100 || words.length > 420) hardReasons.push("word_count");
+    if (sentenceLengths.length < 2) hardReasons.push("too_few_sentences");
+    if (whatsappCount < 1) hardReasons.push("whatsapp_count");
+
+    // Soft failures — retry on early attempts, accept on final attempt
+    const softReasons = [];
+    if (uniqueRatio < 0.28) softReasons.push("low_lexical_diversity");
+    if (fillerFound) softReasons.push(`filler_phrase:${fillerFound}`);
+    if (productFirstWord && !normalized.includes(productFirstWord)) softReasons.push("missing_product");
+    if (tagFirstWord && !normalized.includes(tagFirstWord)) softReasons.push("missing_tag");
+    if (locationFirstWord && !normalized.includes(locationFirstWord)) softReasons.push("missing_location");
+    if (phoneCount < 1) softReasons.push("phone_count");
 
     return {
-        ok: reasons.length === 0,
-        reasons,
+        hardOk: hardReasons.length === 0,
+        ok: hardReasons.length === 0 && softReasons.length === 0,
+        reasons: [...hardReasons, ...softReasons],
         metrics: {
             words: words.length,
             sentences: sentenceLengths.length,
@@ -533,6 +540,8 @@ export async function POST(request) {
 
         const { data: existingSlugs } = await supabase.from("seo_articles").select("slug");
         const existingSet = new Set((existingSlugs || []).map((row) => row.slug));
+        // Tracks slugs that failed quality/generation this session so we don't retry them endlessly
+        const skippedSlugs = new Set();
 
         const startedAt = Date.now();
         let totalGenerated = 0;
@@ -565,7 +574,7 @@ export async function POST(request) {
                         }
 
                         const slug = `${dept.slug}---${cat.slug}---${product.slug}---${tag.slug}-in-${loc.slug}`;
-                        if (existingSet.has(slug)) continue;
+                        if (existingSet.has(slug) || skippedSlugs.has(slug)) continue;
 
                         if (!target) {
                             target = { product, cat, dept, tag, loc, slug };
@@ -670,10 +679,13 @@ export async function POST(request) {
                     productName: target.product.name,
                 });
 
-                const softReject = sim3 >= 0.6 || sim4 >= 0.45 || openingDuplicate || endingDuplicate || !quality.ok;
-                const hardReject = sim3 >= 0.65 || sim4 >= 0.5 || openingDuplicate || endingDuplicate || !quality.ok;
+                const isLastAttempt = attempt >= MAX_ATTEMPTS_PER_STORY - 1;
+                // On the last attempt only hard quality failures (too short, no WhatsApp) block acceptance
+                const qualityBlock = isLastAttempt ? !quality.hardOk : !quality.ok;
+                const softReject = sim3 >= 0.6 || sim4 >= 0.45 || openingDuplicate || endingDuplicate || qualityBlock;
+                const hardReject = sim3 >= 0.65 || sim4 >= 0.5 || openingDuplicate || endingDuplicate || qualityBlock;
 
-                if (softReject && attempt < MAX_ATTEMPTS_PER_STORY - 1) continue;
+                if (softReject && !isLastAttempt) continue;
                 if (hardReject) continue;
 
                 generatedText = candidate;
@@ -685,8 +697,10 @@ export async function POST(request) {
             }
 
             if (!generatedText) {
+                // Skip this slug for the rest of this session; try the next one
+                skippedSlugs.add(target.slug);
                 remaining = 1;
-                break;
+                continue;
             }
 
             const { error: insertError } = await supabase.from("seo_articles").insert({
