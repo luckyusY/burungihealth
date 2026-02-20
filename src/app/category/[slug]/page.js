@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import mainStyles from '../../page.module.css';
 import { getCategoryData } from '../../../lib/data';
 import { supabase } from '../../../lib/supabase';
@@ -37,7 +38,7 @@ export default async function CategoryPage({ params }) {
     const { slug } = await params;
     const data = await getCategoryData(slug);
 
-    if (!data) return <h1>Category Not Found</h1>;
+    if (!data) notFound();
 
     const { category, department, products, tags, locations } = data;
     const firstProductWithSlug = products.find((p) => p.slug);

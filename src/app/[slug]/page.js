@@ -1,6 +1,7 @@
 import { generateCategoryCombos, getComboData, getRelatedArticles, formatSlugTitle } from '@/lib/data';
 import Image from 'next/image';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import styles from './page.module.css';
 import ContactTools from '@/components/ContactTools';
 import { CONTACT, buildCallUrl, buildWhatsAppUrl } from '@/lib/contact';
@@ -37,7 +38,7 @@ export default async function ProgrammaticPage({ params }) {
     const { slug } = await params;
     const data = await getComboData(slug);
 
-    if (!data) return <h1>404 - Page Not Found</h1>;
+    if (!data) notFound();
 
     const { department, category, tag, location, product, products, article } = data;
     const related = await getRelatedArticles(slug, tag.slug, product.slug, 5);
