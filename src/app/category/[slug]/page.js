@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import styles from '../_components/page.module.css'; // Assume we will copy the styles over or point to existing ones.
 import mainStyles from '../../page.module.css'; // pointing to the home page styles for consistency
 import { getCategoryData } from '../../../lib/data';
 
