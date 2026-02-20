@@ -124,22 +124,38 @@ export default function AdminDashboard() {
     }
 
     async function triggerAI() {
-        if (!confirm("Start generating new AI articles for all missing combinations?")) return;
-        setGenStatus("Working... (may take a minute)");
-        try {
-            const res = await fetch('/api/generate', {
-                method: 'POST',
-                body: JSON.stringify({ secret: 'burungi-secure-gen' })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(`Generated ${data.count} new articles!`);
-                fetchAllData();
-            } else {
-                alert("Error: " + data.error);
+        if (!confirm("Start generating new AI articles for all missing combinations?\n\nArticles are generated in batches of 10. Keep clicking until done.")) return;
+        let total = 0;
+        let batch = 1;
+        while (true) {
+            setGenStatus(`Batch ${batch} — generated ${total} so far...`);
+            try {
+                const res = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ secret: 'burungi-secure-gen', limit: 10 })
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    alert(`Server error (${res.status}): ${text}`);
+                    break;
+                }
+                const data = await res.json();
+                if (!data.success) {
+                    alert("Error: " + (data.error || 'Unknown error'));
+                    break;
+                }
+                total += data.count;
+                if (data.count === 0 || data.remaining === 0) {
+                    alert(`Done! Generated ${total} new articles total. ${data.message || ''}`);
+                    fetchAllData();
+                    break;
+                }
+                batch++;
+            } catch (e) {
+                alert(`Request failed: ${e.message}\n\nCheck that OPENAI_API_KEY is set in your Vercel environment variables.`);
+                break;
             }
-        } catch (e) {
-            alert("Request failed.");
         }
         setGenStatus(null);
     }
