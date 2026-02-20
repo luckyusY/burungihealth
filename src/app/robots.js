@@ -1,4 +1,4 @@
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://burungihealth.vercel.app';
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.burungihealth.com').replace(/\/+$/, '');
 
 export default function robots() {
     return {

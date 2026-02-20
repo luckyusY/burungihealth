@@ -289,8 +289,6 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
         .filter(Boolean);
 
     const uniqueRatio = words.length ? new Set(words).size / words.length : 0;
-    const shortSentenceCount = sentenceLengths.filter((len) => len <= 9).length;
-    const longSentenceCount = sentenceLengths.filter((len) => len >= 18).length;
 
     const fillerFound = BANNED_FILLER_PHRASES.find((phrase) => normalized.includes(phrase));
     const whatsappCount = countMatches(text.toLowerCase(), /whatsapp/g);
@@ -298,16 +296,15 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
 
     const reasons = [];
 
-    if (words.length < 170 || words.length > 290) reasons.push("word_count");
-    if (sentenceLengths.length < 5) reasons.push("too_few_sentences");
-    if (uniqueRatio < 0.45) reasons.push("low_lexical_diversity");
-    if (shortSentenceCount < 1 || longSentenceCount < 1) reasons.push("flat_sentence_shape");
+    if (words.length < 120 || words.length > 340) reasons.push("word_count");
+    if (sentenceLengths.length < 3) reasons.push("too_few_sentences");
+    if (uniqueRatio < 0.32) reasons.push("low_lexical_diversity");
     if (fillerFound) reasons.push(`filler_phrase:${fillerFound}`);
     if (!containsPhrase(normalized, productName)) reasons.push("missing_product");
     if (!containsPhrase(normalized, tagName)) reasons.push("missing_tag");
     if (!containsPhrase(normalized, locationName)) reasons.push("missing_location");
-    if (whatsappCount !== 1) reasons.push("whatsapp_count");
-    if (phoneCount !== 1) reasons.push("phone_count");
+    if (whatsappCount < 1) reasons.push("whatsapp_count");
+    if (phoneCount < 1) reasons.push("phone_count");
 
     return {
         ok: reasons.length === 0,
@@ -316,8 +313,6 @@ function evaluateHumanQuality({ text, tagName, locationName, productName }) {
             words: words.length,
             sentences: sentenceLengths.length,
             uniqueRatio,
-            shortSentenceCount,
-            longSentenceCount,
         },
     };
 }
@@ -544,182 +539,184 @@ export async function POST(request) {
         let remaining = 0;
         let stoppedForRuntime = false;
 
-        productLoop:
-        for (const product of products) {
-            const cat = categories?.find((c) => c.id === product.category_id);
-            const dept = departments?.find((d) => d.id === (product.department_id || cat?.department_id));
-            if (!cat || !dept) continue;
+        while (totalGenerated < BATCH_LIMIT) {
+            let target = null;
+            let hasMoreAfterTarget = false;
+
+            searchLoop:
+            for (const product of products) {
+                const cat = categories?.find((c) => c.id === product.category_id);
+                const dept = departments?.find((d) => d.id === (product.department_id || cat?.department_id));
+                if (!cat || !dept) continue;
+
+                const deptTags = (tags || []).filter((tag) => {
+                    if (String(tag.department_id) !== String(dept.id)) return false;
+                    if (hasTagFilter && !filterTagIds.has(String(tag.id))) return false;
+                    return true;
+                });
+
+                for (const tag of deptTags) {
+                    for (const loc of locations || []) {
+                        if (hasLocationFilter && !filterLocationIds.has(String(loc.id))) continue;
+                        if (Date.now() - startedAt > SAFE_RUNTIME_MS) {
+                            stoppedForRuntime = true;
+                            remaining = 1;
+                            break searchLoop;
+                        }
+
+                        const slug = `${dept.slug}---${cat.slug}---${product.slug}---${tag.slug}-in-${loc.slug}`;
+                        if (existingSet.has(slug)) continue;
+
+                        if (!target) {
+                            target = { product, cat, dept, tag, loc, slug };
+                        } else {
+                            hasMoreAfterTarget = true;
+                            break searchLoop;
+                        }
+                    }
+                }
+            }
+
+            if (!target) {
+                if (!stoppedForRuntime) remaining = 0;
+                break;
+            }
+
+            const runtimeLeft = SAFE_RUNTIME_MS - (Date.now() - startedAt);
+            if (runtimeLeft < 2800) {
+                stoppedForRuntime = true;
+                remaining = 1;
+                break;
+            }
 
             const { data: productArticles } = await supabase
                 .from("seo_articles")
                 .select("content")
-                .ilike("slug", `%---${product.slug}---%`)
-                .limit(60);
+                .ilike("slug", `%---${target.product.slug}---%`)
+                .limit(50);
 
-            const productContents = (productArticles || []).map((row) => row.content).filter(Boolean);
-            const storyBank = createStoryBank(productContents);
+            const storyBank = createStoryBank((productArticles || []).map((row) => row.content).filter(Boolean));
 
-            const deptTags = (tags || []).filter((tag) => {
-                if (String(tag.department_id) !== String(dept.id)) return false;
-                if (hasTagFilter && !filterTagIds.has(String(tag.id))) return false;
-                return true;
+            let generatedText = "";
+            let generatedSet3 = null;
+            let generatedSet4 = null;
+            let generatedOpening = "";
+            let generatedEnding = "";
+
+            for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_STORY; attempt++) {
+                const profile = buildStoryProfile(target.slug, attempt);
+                const blockedOpenings = storyBank.openingHints.length
+                    ? storyBank.openingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
+                    : "None yet.";
+                const blockedEndings = storyBank.endingHints.length
+                    ? storyBank.endingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
+                    : "None yet.";
+                const avoidPhrases = storyBank.repeatedPhrases.length
+                    ? storyBank.repeatedPhrases.join(", ")
+                    : "None yet.";
+
+                const productContext = target.product.ai_context
+                    ? `Product: ${target.product.name}. ${target.product.ai_context}`
+                    : `Product: ${target.product.name}.`;
+
+                const specificityInstructions = buildSpecificityInstructions({
+                    product: target.product,
+                    category: target.cat,
+                    department: target.dept,
+                    tag: target.tag,
+                    location: target.loc,
+                });
+
+                const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${target.product.name}\nKeyword/problem: "${target.tag.name}"\nLocation: ${target.loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${target.loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nContext specificity requirements:\n${specificityInstructions}\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp at least once and include +250 798 707 702 at least once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
+
+                let candidate = "";
+                try {
+                    const requestTimeout = Math.max(2200, Math.min(7500, runtimeLeft - 1000));
+                    const response = await openai.chat.completions.create(
+                        {
+                            model: "gpt-4o-mini",
+                            messages: [
+                                {
+                                    role: "system",
+                                    content: "You write human-sounding local SEO stories with high variation and no templated AI phrasing.",
+                                },
+                                { role: "user", content: prompt },
+                            ],
+                            temperature: profile.temperature,
+                            max_tokens: 520,
+                        },
+                        { timeout: requestTimeout }
+                    );
+                    candidate = response.choices[0]?.message?.content?.trim() || "";
+                } catch {
+                    continue;
+                }
+
+                if (!candidate) continue;
+
+                const candidateSet3 = toShingleSet(candidate, 3);
+                const candidateSet4 = toShingleSet(candidate, 4);
+                const candidateOpening = openingFingerprint(candidate);
+                const candidateEnding = endingFingerprint(candidate);
+
+                const sim3 = maxSimilarity(candidateSet3, storyBank.fingerprints3);
+                const sim4 = maxSimilarity(candidateSet4, storyBank.fingerprints4);
+                const openingDuplicate = candidateOpening && storyBank.openings.has(candidateOpening);
+                const endingDuplicate = candidateEnding && storyBank.endings.has(candidateEnding);
+                const quality = evaluateHumanQuality({
+                    text: candidate,
+                    tagName: target.tag.name,
+                    locationName: target.loc.name,
+                    productName: target.product.name,
+                });
+
+                const softReject = sim3 >= 0.6 || sim4 >= 0.45 || openingDuplicate || endingDuplicate || !quality.ok;
+                const hardReject = sim3 >= 0.65 || sim4 >= 0.5 || openingDuplicate || endingDuplicate || !quality.ok;
+
+                if (softReject && attempt < MAX_ATTEMPTS_PER_STORY - 1) continue;
+                if (hardReject) continue;
+
+                generatedText = candidate;
+                generatedSet3 = candidateSet3;
+                generatedSet4 = candidateSet4;
+                generatedOpening = candidateOpening;
+                generatedEnding = candidateEnding;
+                break;
+            }
+
+            if (!generatedText) {
+                remaining = 1;
+                break;
+            }
+
+            const { error: insertError } = await supabase.from("seo_articles").insert({
+                slug: target.slug,
+                content: generatedText,
+                language: "en",
+                is_approved: false,
             });
 
-            for (const tag of deptTags) {
-                for (const loc of locations || []) {
-                    if (hasLocationFilter && !filterLocationIds.has(String(loc.id))) continue;
-
-                    if (Date.now() - startedAt > SAFE_RUNTIME_MS) {
-                        stoppedForRuntime = true;
-                        remaining = Math.max(remaining, 1);
-                        break productLoop;
-                    }
-
-                    const slug = `${dept.slug}---${cat.slug}---${product.slug}---${tag.slug}-in-${loc.slug}`;
-                    if (existingSet.has(slug)) continue;
-
-                    if (totalGenerated >= BATCH_LIMIT) {
-                        remaining = Math.max(remaining, 1);
-                        break productLoop;
-                    }
-
-                    let generatedText = "";
-                    let generatedSet3 = null;
-                    let generatedSet4 = null;
-                    let generatedOpening = "";
-                    let generatedEnding = "";
-
-                    for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_STORY; attempt++) {
-                        const runtimeLeft = SAFE_RUNTIME_MS - (Date.now() - startedAt);
-                        if (runtimeLeft < 3500) {
-                            stoppedForRuntime = true;
-                            remaining = Math.max(remaining, 1);
-                            break productLoop;
-                        }
-
-                        const profile = buildStoryProfile(slug, attempt);
-                        const blockedOpenings = storyBank.openingHints.length
-                            ? storyBank.openingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
-                            : "None yet.";
-
-                        const blockedEndings = storyBank.endingHints.length
-                            ? storyBank.endingHints.map((hint, idx) => `${idx + 1}. ${hint}`).join("\n")
-                            : "None yet.";
-
-                        const avoidPhrases = storyBank.repeatedPhrases.length
-                            ? storyBank.repeatedPhrases.join(", ")
-                            : "None yet.";
-
-                        const productContext = product.ai_context
-                            ? `Product: ${product.name}. ${product.ai_context}`
-                            : `Product: ${product.name}.`;
-
-                        const specificityInstructions = buildSpecificityInstructions({
-                            product,
-                            category: cat,
-                            department: dept,
-                            tag,
-                            location: loc,
-                        });
-
-                        const prompt = `Write a ${profile.wordCount}-word SEO story for BurungiHealth in plain paragraphs only (no headings, no bullets, no markdown).\n\nProduct: ${product.name}\nKeyword/problem: "${tag.name}"\nLocation: ${loc.name}, Rwanda\nStory signature: ${profile.signature}\nOpening style: ${profile.opening}\nNarrator: ${profile.narrator}\nSentence rhythm: ${profile.rhythm}\nCTA style: ${profile.ctaStyle}\nScene anchor: ${profile.scene}\nProof style: ${profile.proofStyle}\nClosing style: ${profile.closing}\n\nHuman quality requirements:\n- Make it sound like a real person talking to one reader, not a generic ad template\n- Include one emotionally honest line and one practical line\n- Use concrete local context for ${loc.name}\n- Mention one realistic limitation or common mistake before recommending the product\n- Keep claims responsible and avoid miracle language\n\nContext specificity requirements:\n${specificityInstructions}\n\nAvoid these repeated opening fingerprints:\n${blockedOpenings}\n\nAvoid these repeated closing fingerprints:\n${blockedEndings}\n\nAvoid reusing these repeated phrases:\n${avoidPhrases}\n\nStrict rules:\n- Do not start with the product name\n- Mention WhatsApp exactly once and include +250 798 707 702 exactly once\n- Keep this story structurally and stylistically distinct from previous stories for this product\n- Avoid filler transitions like: ${BANNED_FILLER_PHRASES.join(", ")}\n\nProduct details:\n${productContext}`;
-
-                        let candidate = "";
-                        try {
-                            const requestTimeout = Math.max(2000, Math.min(6000, runtimeLeft - 1500));
-                            const response = await openai.chat.completions.create(
-                                {
-                                    model: "gpt-4o-mini",
-                                    messages: [
-                                        {
-                                            role: "system",
-                                            content: "You write human-sounding local SEO stories with high variation and no templated AI phrasing.",
-                                        },
-                                        { role: "user", content: prompt },
-                                    ],
-                                    temperature: profile.temperature,
-                                    max_tokens: 420,
-                                },
-                                { timeout: requestTimeout }
-                            );
-                            candidate = response.choices[0]?.message?.content?.trim() || "";
-                        } catch {
-                            if (attempt < MAX_ATTEMPTS_PER_STORY - 1) continue;
-                            break;
-                        }
-
-                        if (!candidate) continue;
-
-                        const candidateSet3 = toShingleSet(candidate, 3);
-                        const candidateSet4 = toShingleSet(candidate, 4);
-                        const candidateOpening = openingFingerprint(candidate);
-                        const candidateEnding = endingFingerprint(candidate);
-
-                        const sim3 = maxSimilarity(candidateSet3, storyBank.fingerprints3);
-                        const sim4 = maxSimilarity(candidateSet4, storyBank.fingerprints4);
-                        const openingDuplicate = candidateOpening && storyBank.openings.has(candidateOpening);
-                        const endingDuplicate = candidateEnding && storyBank.endings.has(candidateEnding);
-                        const quality = evaluateHumanQuality({
-                            text: candidate,
-                            tagName: tag.name,
-                            locationName: loc.name,
-                            productName: product.name,
-                        });
-
-                        const softReject = sim3 >= 0.53 || sim4 >= 0.37 || openingDuplicate || endingDuplicate || !quality.ok;
-                        const hardReject = sim3 >= 0.57 || sim4 >= 0.41 || openingDuplicate || endingDuplicate || !quality.ok;
-
-                        if (softReject && attempt < MAX_ATTEMPTS_PER_STORY - 1) {
-                            continue;
-                        }
-
-                        if (hardReject) {
-                            generatedText = "";
-                            break;
-                        }
-
-                        generatedText = candidate;
-                        generatedSet3 = candidateSet3;
-                        generatedSet4 = candidateSet4;
-                        generatedOpening = candidateOpening;
-                        generatedEnding = candidateEnding;
-                        break;
-                    }
-
-                    if (!generatedText) {
-                        remaining = Math.max(remaining, 1);
-                        continue;
-                    }
-
-                    const { error: insertError } = await supabase.from("seo_articles").insert({
-                        slug,
-                        content: generatedText,
-                        language: "en",
-                        is_approved: false,
-                    });
-
-                    if (insertError) {
-                        remaining = Math.max(remaining, 1);
-                        continue;
-                    }
-
-                    existingSet.add(slug);
-                    totalGenerated++;
-
-                    if (generatedSet3) storyBank.fingerprints3.push(generatedSet3);
-                    if (generatedSet4) storyBank.fingerprints4.push(generatedSet4);
-
-                    if (generatedOpening) {
-                        storyBank.openings.add(generatedOpening);
-                        if (storyBank.openingHints.length < 5) storyBank.openingHints.push(generatedOpening);
-                    }
-
-                    if (generatedEnding) {
-                        storyBank.endings.add(generatedEnding);
-                        if (storyBank.endingHints.length < 5) storyBank.endingHints.push(generatedEnding);
-                    }
-                }
+            if (insertError) {
+                remaining = 1;
+                break;
             }
+
+            existingSet.add(target.slug);
+            totalGenerated++;
+
+            if (generatedSet3) storyBank.fingerprints3.push(generatedSet3);
+            if (generatedSet4) storyBank.fingerprints4.push(generatedSet4);
+            if (generatedOpening) {
+                storyBank.openings.add(generatedOpening);
+                if (storyBank.openingHints.length < 5) storyBank.openingHints.push(generatedOpening);
+            }
+            if (generatedEnding) {
+                storyBank.endings.add(generatedEnding);
+                if (storyBank.endingHints.length < 5) storyBank.endingHints.push(generatedEnding);
+            }
+
+            remaining = hasMoreAfterTarget ? 1 : 0;
+            if (!hasMoreAfterTarget) break;
         }
 
         return new Response(
