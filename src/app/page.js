@@ -23,7 +23,7 @@ export default function Home() {
               Shaka ibisubizo nyabyo ku bibazo by'imyororokere. Gukira kurangiza vuba, kubura ubushake, cyangwa kongera igitsina byose birashoboka ukoresheje inyongeramusaruro zizewe nka Maxman.
             </p>
             <div className={`${styles.actions} ${styles.fadeUpDelay4}`}>
-              <Link href="/mens-health-ibinini-kurangiza-vuba-in-kigali" className={styles.primaryBtn}>
+              <Link href="/mens-health---ibinini---kurangiza-vuba-in-kigali" className={styles.primaryBtn}>
                 Reba Urugero Rw'Umuti (Demo)
               </Link>
             </div>
