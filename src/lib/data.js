@@ -46,7 +46,7 @@ export async function getComboData(comboSlug) {
     const [deptReq, catReq, tagReq, locReq, articleReq] = await Promise.all([
         supabase.from('departments').select('*').eq('slug', deptSlug).single(),
         supabase.from('categories').select('*').eq('slug', categorySlug).single(),
-        supabase.from('tags').select('*').eq('slug', tagSlug).single(),
+        supabase.from('tags').select('id, name, slug, synonyms').eq('slug', tagSlug).single(),
         supabase.from('locations').select('*').eq('slug', locationSlug).single(),
         supabase.from('seo_articles').select('content').eq('slug', comboSlug).eq('is_approved', true).single()
     ]);

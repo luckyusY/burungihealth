@@ -109,6 +109,13 @@ export default async function CategoryPage({ params }) {
                                         </div>
                                         <div className={mainStyles.cardContent}>
                                             <h3 style={{ margin: '0.5rem 0' }}>{product.name}</h3>
+                                            {product.problems_solved && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.6rem' }}>
+                                                    {product.problems_solved.split(',').map(p => p.trim()).filter(Boolean).map(p => (
+                                                        <span key={p} style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', color: '#d4af37', fontSize: '0.7rem', fontWeight: 600, padding: '0.18rem 0.5rem', borderRadius: '4px' }}>✓ {p}</span>
+                                                    ))}
+                                                </div>
+                                            )}
                                             <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#d4af37', marginBottom: '0.75rem' }}>
                                                 {product.price != null ? Number(product.price).toLocaleString() : 'Ask for Price'} {product.price != null ? 'RWF' : ''}
                                             </div>

@@ -202,3 +202,21 @@
     .headerCta { width: 100%; text-align: center; }
 }
 @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+
+/* ─── Problems Solved Chips ─── */
+.problemChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+}
+.problemChip {
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    color: #d4af37;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}

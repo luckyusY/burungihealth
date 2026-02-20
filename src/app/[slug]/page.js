@@ -20,7 +20,8 @@ export async function generateMetadata({ params }) {
 
     const { department, category, tag, location } = data;
     const title = `${tag.name} Solution in ${location.name} — ${category.name} | BurungiHealth`;
-    const description = `Looking for the best ${tag.name.toLowerCase()} solution in ${location.name}? Discover trusted ${category.name.toLowerCase()} from BurungiHealth. Fast & discreet delivery across Rwanda.`;
+    const synonymPart = tag.synonyms ? ` Also known as: ${tag.synonyms}.` : '';
+    const description = `Looking for the best ${tag.name.toLowerCase()} solution in ${location.name}? Discover trusted ${category.name.toLowerCase()} from BurungiHealth. Fast & discreet delivery across Rwanda.${synonymPart}`;
 
     return {
         title,
@@ -102,6 +103,11 @@ export default async function ProgrammaticPage({ params }) {
                             Looking for a trusted <strong>{tag.name.toLowerCase()}</strong> solution in <strong>{location.name}</strong>?
                             Explore our <strong>{category.name.toLowerCase()}</strong> range — fast delivery, 100% discreet.
                         </p>
+                        {tag.synonyms && (
+                            <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.45)', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                Also searched as: {tag.synonyms}
+                            </p>
+                        )}
                         <a href="https://wa.me/250798707702" target="_blank" rel="noreferrer" className={styles.headerCta}>
                             Order on WhatsApp — +250 798 707 702
                         </a>
@@ -133,6 +139,13 @@ export default async function ProgrammaticPage({ params }) {
                                         </div>
                                         <div className={styles.productInfo}>
                                             <h3 className={styles.productName}>{product.name}</h3>
+                                            {product.problems_solved && (
+                                                <div className={styles.problemChips}>
+                                                    {product.problems_solved.split(',').map(p => p.trim()).filter(Boolean).map(p => (
+                                                        <span key={p} className={styles.problemChip}>✓ {p}</span>
+                                                    ))}
+                                                </div>
+                                            )}
                                             <div className={styles.metaRow}>
                                                 <span className={styles.price}>
                                                     {product.price != null ? Number(product.price).toLocaleString() : 'Ask'} RWF

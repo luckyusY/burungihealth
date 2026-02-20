@@ -14,10 +14,10 @@ export default function AdminDashboard() {
     const [locations, setLocations] = useState([]);
 
     const [newCat, setNewCat] = useState({ name: '', slug: '', department_id: '' });
-    const [newTag, setNewTag] = useState({ name: '', slug: '', department_id: '' });
+    const [newTag, setNewTag] = useState({ name: '', slug: '', department_id: '', synonyms: '' });
     const [newLoc, setNewLoc] = useState({ name: '', slug: '' });
     const [newDept, setNewDept] = useState({ name: '', slug: '' });
-    const [newProduct, setNewProduct] = useState({ name: '', price: '', image_url: '', description: '', category_id: '', department_id: '' });
+    const [newProduct, setNewProduct] = useState({ name: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' });
     const [genStatus, setGenStatus] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -82,12 +82,13 @@ export default function AdminDashboard() {
             price: newProduct.price ? Number(newProduct.price) : null,
             image_url: newProduct.image_url || null,
             description: newProduct.description || null,
+            problems_solved: newProduct.problems_solved || null,
             category_id: newProduct.category_id,
             department_id: newProduct.department_id || null,
         };
         const { error } = await supabase.from('products').insert([row]);
         if (error) alert(error.message);
-        else { fetchAllData(); setNewProduct({ name: '', price: '', image_url: '', description: '', category_id: '', department_id: '' }); }
+        else { fetchAllData(); setNewProduct({ name: '', price: '', image_url: '', description: '', problems_solved: '', category_id: '', department_id: '' }); }
         setSaving(null);
     }
 
@@ -327,6 +328,14 @@ export default function AdminDashboard() {
                                 />
                             </div>
                         </div>
+                        <div className={styles.fieldGroup}>
+                            <label>Problems This Product Solves <span style={{ color: '#888', fontWeight: 400 }}>(comma-separated — shown as chips on product card)</span></label>
+                            <input
+                                value={newProduct.problems_solved}
+                                onChange={(e) => setNewProduct({ ...newProduct, problems_solved: e.target.value })}
+                                placeholder="e.g. Low Libido, Hormonal Imbalance, Sexual Performance"
+                            />
+                        </div>
                         <button
                             className={styles.approveBtn}
                             onClick={addProduct}
@@ -375,6 +384,15 @@ export default function AdminDashboard() {
                                             placeholder="https://..."
                                         />
                                     </div>
+                                </div>
+
+                                <div className={styles.fieldGroup}>
+                                    <label>Problems This Product Solves <span style={{ color: '#888', fontWeight: 400 }}>(comma-separated)</span></label>
+                                    <input
+                                        defaultValue={product.problems_solved}
+                                        onBlur={(e) => saveProductEdit(product.id, 'problems_solved', e.target.value)}
+                                        placeholder="e.g. Low Libido, Hormonal Imbalance, Sexual Performance"
+                                    />
                                 </div>
 
                                 <div className={styles.fieldGroup}>
@@ -454,9 +472,17 @@ export default function AdminDashboard() {
                                 </select>
                             </div>
                         </div>
+                        <div className={styles.fieldGroup}>
+                            <label>Kinyarwanda Synonyms <span style={{ color: '#888', fontWeight: 400 }}>(comma-separated — used in page metadata for local search)</span></label>
+                            <input
+                                value={newTag.synonyms}
+                                onChange={(e) => setNewTag({ ...newTag, synonyms: e.target.value })}
+                                placeholder="e.g. kubura ubushake, kongera igitsina"
+                            />
+                        </div>
                         <button
                             className={styles.approveBtn}
-                            onClick={() => addRow('tags', newTag, 'tags', () => setNewTag({ name: '', slug: '', department_id: '' }), 'keyword')}
+                            onClick={() => addRow('tags', newTag, 'tags', () => setNewTag({ name: '', slug: '', department_id: '', synonyms: '' }), 'keyword')}
                             disabled={saving === 'add-tags'}
                         >
                             {saving === 'add-tags' ? 'Saving...' : '+ Add Keyword'}
