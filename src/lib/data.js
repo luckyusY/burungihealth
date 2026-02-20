@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 export async function generateCategoryCombos() {
     const { data: departments } = await supabase.from('departments').select('id, slug');
     const { data: categories } = await supabase.from('categories').select('id, slug, department_id');
-    const { data: tags } = await supabase.from('tags').select('slug');
+    const { data: tags } = await supabase.from('tags').select('slug, department_id');
     const { data: locations } = await supabase.from('locations').select('slug');
 
     if (!departments || !categories || !tags || !locations) return [];
@@ -11,8 +11,10 @@ export async function generateCategoryCombos() {
     const combos = [];
     departments.forEach(dept => {
         const deptCats = categories.filter(c => c.department_id === dept.id);
+        // Only use tags that belong to this department — prevents cross-contamination
+        const deptTags = tags.filter(t => t.department_id === dept.id);
         deptCats.forEach(cat => {
-            tags.forEach(tag => {
+            deptTags.forEach(tag => {
                 locations.forEach(loc => {
                     combos.push({
                         slug: `${dept.slug}---${cat.slug}---${tag.slug}-in-${loc.slug}`,

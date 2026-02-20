@@ -14,9 +14,10 @@ export default function AdminDashboard() {
     const [locations, setLocations] = useState([]);
 
     const [newCat, setNewCat] = useState({ name: '', slug: '', department_id: '' });
-    const [newTag, setNewTag] = useState({ name: '', slug: '' });
+    const [newTag, setNewTag] = useState({ name: '', slug: '', department_id: '' });
     const [newLoc, setNewLoc] = useState({ name: '', slug: '' });
     const [newDept, setNewDept] = useState({ name: '', slug: '' });
+    const [newProduct, setNewProduct] = useState({ name: '', price: '', image_url: '', description: '', category_id: '', department_id: '' });
     const [genStatus, setGenStatus] = useState(null);
 
     const [loading, setLoading] = useState(true);
@@ -72,6 +73,24 @@ export default function AdminDashboard() {
     }
 
     // --- Product Functions ---
+    async function addProduct() {
+        if (!newProduct.name) { alert('Enter a product name.'); return; }
+        if (!newProduct.category_id) { alert('Select a category.'); return; }
+        setSaving('add-product');
+        const row = {
+            name: newProduct.name,
+            price: newProduct.price ? Number(newProduct.price) : null,
+            image_url: newProduct.image_url || null,
+            description: newProduct.description || null,
+            category_id: newProduct.category_id,
+            department_id: newProduct.department_id || null,
+        };
+        const { error } = await supabase.from('products').insert([row]);
+        if (error) alert(error.message);
+        else { fetchAllData(); setNewProduct({ name: '', price: '', image_url: '', description: '', category_id: '', department_id: '' }); }
+        setSaving(null);
+    }
+
     async function saveProductEdit(id, field, value) {
         setSaving(id);
         const { error } = await supabase.from('products').update({ [field]: value }).eq('id', id);
@@ -82,8 +101,10 @@ export default function AdminDashboard() {
     // --- Generic add helpers ---
     async function addRow(table, row, stateKey, resetFn, label) {
         if (!row.name || !row.slug) { alert(`Enter a name and slug for the ${label}.`); return; }
+        if (table === 'tags' && !row.department_id) { alert('Select a department for this keyword.'); return; }
+        if (table === 'categories' && !row.department_id) { alert('Select a department for this category.'); return; }
         setSaving('add-' + table);
-        const { error } = await supabase.from(table).insert([{ id: row.slug, ...row }]);
+        const { error } = await supabase.from(table).insert([row]);
         if (error) alert(error.message);
         else { fetchAllData(); resetFn(); }
         setSaving(null);
@@ -124,10 +145,11 @@ export default function AdminDashboard() {
     const liveCount = articles.filter(a => a.is_approved).length;
     const pendingCount = articles.filter(a => !a.is_approved).length;
 
-    // How many combinations will AI generate: dept×cat×tag×loc
+    // How many combinations will AI generate: dept×cat×(dept-scoped tags)×loc
     const combinations = departments.reduce((acc, dept) => {
         const deptCats = categories.filter(c => c.department_id === dept.id);
-        return acc + deptCats.length * tags.length * locations.length;
+        const deptTags = tags.filter(t => t.department_id === dept.id);
+        return acc + deptCats.length * deptTags.length * locations.length;
     }, 0);
 
     return (
@@ -240,7 +262,85 @@ export default function AdminDashboard() {
             {/* ─── PRODUCTS TAB ─── */}
             {activeTab === 'products' && (
                 <div className={styles.view}>
+
+                    {/* Add Product Form */}
+                    <section className={styles.toolSection}>
+                        <h2>Add New Product</h2>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Product Name *</label>
+                                <input
+                                    value={newProduct.name}
+                                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                                    placeholder="e.g. Vigor Plus Capsules"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Price (RWF)</label>
+                                <input
+                                    type="number"
+                                    value={newProduct.price}
+                                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                                    placeholder="e.g. 25000"
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Department *</label>
+                                <select
+                                    value={newProduct.department_id}
+                                    onChange={(e) => setNewProduct({ ...newProduct, department_id: e.target.value, category_id: '' })}
+                                >
+                                    <option value="">Select Department...</option>
+                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Category *</label>
+                                <select
+                                    value={newProduct.category_id}
+                                    onChange={(e) => setNewProduct({ ...newProduct, category_id: e.target.value })}
+                                >
+                                    <option value="">Select Category...</option>
+                                    {categories
+                                        .filter(c => !newProduct.department_id || c.department_id === newProduct.department_id)
+                                        .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Image URL</label>
+                                <input
+                                    value={newProduct.image_url}
+                                    onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })}
+                                    placeholder="https://..."
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Description</label>
+                                <input
+                                    value={newProduct.description}
+                                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                                    placeholder="Short product description"
+                                />
+                            </div>
+                        </div>
+                        <button
+                            className={styles.approveBtn}
+                            onClick={addProduct}
+                            disabled={saving === 'add-product'}
+                            style={{ marginTop: '0.5rem' }}
+                        >
+                            {saving === 'add-product' ? 'Saving...' : '+ Add Product'}
+                        </button>
+                    </section>
+
                     <div className={styles.list}>
+                        {products.length === 0 && (
+                            <p style={{ color: '#666', padding: '1rem 0' }}>No products yet. Add your first product above.</p>
+                        )}
                         {products.map((product) => (
                             <div key={product.id} className={styles.card}>
                                 <div className={styles.prodRow}>
@@ -334,7 +434,7 @@ export default function AdminDashboard() {
                                 <label>Keyword / Tag Name</label>
                                 <input
                                     value={newTag.name}
-                                    onChange={(e) => setNewTag({ name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    onChange={(e) => setNewTag({ ...newTag, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
                                     placeholder="e.g. low libido"
                                 />
                             </div>
@@ -346,22 +446,40 @@ export default function AdminDashboard() {
                                     placeholder="e.g. low-libido"
                                 />
                             </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Department</label>
+                                <select value={newTag.department_id} onChange={(e) => setNewTag({ ...newTag, department_id: e.target.value })}>
+                                    <option value="">Select Department...</option>
+                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
                         </div>
                         <button
                             className={styles.approveBtn}
-                            onClick={() => addRow('tags', newTag, 'tags', () => setNewTag({ name: '', slug: '' }), 'keyword')}
+                            onClick={() => addRow('tags', newTag, 'tags', () => setNewTag({ name: '', slug: '', department_id: '' }), 'keyword')}
                             disabled={saving === 'add-tags'}
                         >
                             {saving === 'add-tags' ? 'Saving...' : '+ Add Keyword'}
                         </button>
                         <div className={styles.catList} style={{ marginTop: '1.5rem' }}>
-                            {tags.map(t => (
-                                <div key={t.id} className={styles.catChip}>
-                                    <span className={styles.catName}>{t.name}</span>
-                                    <span className={styles.catSlug}>{t.slug}</span>
-                                    <button className={styles.chipDelete} onClick={() => deleteRow('tags', t.id, setTags)}>×</button>
-                                </div>
-                            ))}
+                            {departments.map(dept => {
+                                const deptTags = tags.filter(t => t.department_id === dept.id);
+                                if (deptTags.length === 0) return null;
+                                return (
+                                    <div key={dept.id} style={{ marginBottom: '1.25rem' }}>
+                                        <p style={{ fontSize: '0.78rem', color: '#888', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem' }}>{dept.name}</p>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                            {deptTags.map(t => (
+                                                <div key={t.id} className={styles.catChip}>
+                                                    <span className={styles.catName}>{t.name}</span>
+                                                    <span className={styles.catSlug}>{t.slug}</span>
+                                                    <button className={styles.chipDelete} onClick={() => deleteRow('tags', t.id, setTags)}>×</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </section>
 

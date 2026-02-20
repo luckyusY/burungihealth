@@ -22,9 +22,10 @@ export async function POST(request) {
         let totalGenerated = 0;
 
         for (const dept of departments) {
+            const deptTags = tags.filter(t => t.department_id === dept.id);
             for (const cat of categories) {
                 if (cat.department_id !== dept.id) continue;
-                for (const tag of tags) {
+                for (const tag of deptTags) {
                     for (const loc of locations) {
                         const baseSlug = `${dept.slug}---${cat.slug}---${tag.slug}-in-${loc.slug}`;
                         const enSlug = `en---${baseSlug}`;
