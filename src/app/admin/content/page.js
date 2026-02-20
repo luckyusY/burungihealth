@@ -5,31 +5,35 @@ import { supabase } from '../../../lib/supabase';
 import styles from './admin.module.css';
 
 export default function AdminDashboard() {
-    const [activeTab, setActiveTab] = useState('seo'); // 'seo', 'products', or 'tools'
+    const [activeTab, setActiveTab] = useState('seo');
     const [articles, setArticles] = useState([]);
     const [products, setProducts] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [tags, setTags] = useState([]);
+    const [locations, setLocations] = useState([]);
 
-    // New category state
     const [newCat, setNewCat] = useState({ name: '', slug: '', department_id: '' });
+    const [newTag, setNewTag] = useState({ name: '', slug: '' });
+    const [newLoc, setNewLoc] = useState({ name: '', slug: '' });
+    const [newDept, setNewDept] = useState({ name: '', slug: '' });
     const [genStatus, setGenStatus] = useState(null);
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(null);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        fetchAllData();
-    }, []);
+    useEffect(() => { fetchAllData(); }, []);
 
     async function fetchAllData() {
         setLoading(true);
-        const [artRes, prodRes, deptRes, catRes] = await Promise.all([
+        const [artRes, prodRes, deptRes, catRes, tagRes, locRes] = await Promise.all([
             supabase.from('seo_articles').select('*').order('created_at', { ascending: false }),
             supabase.from('products').select('*').order('name', { ascending: true }),
-            supabase.from('departments').select('*'),
-            supabase.from('categories').select('*')
+            supabase.from('departments').select('*').order('name'),
+            supabase.from('categories').select('*').order('name'),
+            supabase.from('tags').select('*').order('name'),
+            supabase.from('locations').select('*').order('name'),
         ]);
 
         if (artRes.error) setError(artRes.error.message);
@@ -37,6 +41,8 @@ export default function AdminDashboard() {
         setProducts(prodRes.data || []);
         setDepartments(deptRes.data || []);
         setCategories(catRes.data || []);
+        setTags(tagRes.data || []);
+        setLocations(locRes.data || []);
         setLoading(false);
     }
 
@@ -73,28 +79,28 @@ export default function AdminDashboard() {
         setSaving(null);
     }
 
-    // --- Tool Functions ---
-    async function addCategory() {
-        if (!newCat.name || !newCat.slug || !newCat.department_id) {
-            alert("Uzuza neza imyirondoro ya kategory!");
-            return;
-        }
-        setSaving('new-cat');
-        const { error } = await supabase.from('categories').insert([
-            { id: newCat.slug, ...newCat }
-        ]);
+    // --- Generic add helpers ---
+    async function addRow(table, row, stateKey, resetFn, label) {
+        if (!row.name || !row.slug) { alert(`Enter a name and slug for the ${label}.`); return; }
+        setSaving('add-' + table);
+        const { error } = await supabase.from(table).insert([{ id: row.slug, ...row }]);
         if (error) alert(error.message);
-        else {
-            alert("Category yakuweho neza!");
-            fetchAllData();
-            setNewCat({ name: '', slug: '', department_id: '' });
-        }
+        else { fetchAllData(); resetFn(); }
+        setSaving(null);
+    }
+
+    async function deleteRow(table, id, setState) {
+        if (!confirm(`Delete this entry: ${id}?`)) return;
+        setSaving('del-' + id);
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) alert(error.message);
+        else setState(prev => prev.filter(r => r.id !== id));
         setSaving(null);
     }
 
     async function triggerAI() {
-        if (!confirm("Ushaka gutangira kwandika inkuru nshya ukoresheje AI?")) return;
-        setGenStatus("Muri gutegura... (Bishobora gufata umunota)");
+        if (!confirm("Start generating new AI articles for all missing combinations?")) return;
+        setGenStatus("Working... (may take a minute)");
         try {
             const res = await fetch('/api/generate', {
                 method: 'POST',
@@ -102,7 +108,7 @@ export default function AdminDashboard() {
             });
             const data = await res.json();
             if (data.success) {
-                alert(`Twanditse inkuru ${data.count} nshya!`);
+                alert(`Generated ${data.count} new articles!`);
                 fetchAllData();
             } else {
                 alert("Error: " + data.error);
@@ -113,10 +119,16 @@ export default function AdminDashboard() {
         setGenStatus(null);
     }
 
-    if (loading) return <div className={styles.loading}>Muri gutegerezwa...</div>;
+    if (loading) return <div className={styles.loading}>Loading...</div>;
 
     const liveCount = articles.filter(a => a.is_approved).length;
     const pendingCount = articles.filter(a => !a.is_approved).length;
+
+    // How many combinations will AI generate: dept×cat×tag×loc
+    const combinations = departments.reduce((acc, dept) => {
+        const deptCats = categories.filter(c => c.department_id === dept.id);
+        return acc + deptCats.length * tags.length * locations.length;
+    }, 0);
 
     return (
         <main className={styles.container}>
@@ -144,48 +156,48 @@ export default function AdminDashboard() {
                     </div>
                     <div className={`${styles.statCard} ${styles.statPending}`} onClick={() => setActiveTab('seo')}>
                         <span className={styles.statNum}>{pendingCount}</span>
-                        <span className={styles.statLabel}>Pending Review</span>
+                        <span className={styles.statLabel}>Pending</span>
                     </div>
                     <div className={styles.statCard} onClick={() => setActiveTab('products')}>
                         <span className={styles.statNum}>{products.length}</span>
                         <span className={styles.statLabel}>Products</span>
                     </div>
-                    <div className={styles.statCard} onClick={() => setActiveTab('tools')}>
-                        <span className={styles.statNum}>{categories.length}</span>
-                        <span className={styles.statLabel}>Categories</span>
+                    <div className={styles.statCard} onClick={() => setActiveTab('data')}>
+                        <span className={styles.statNum}>{tags.length}</span>
+                        <span className={styles.statLabel}>Keywords</span>
+                    </div>
+                    <div className={styles.statCard} onClick={() => setActiveTab('data')}>
+                        <span className={styles.statNum}>{locations.length}</span>
+                        <span className={styles.statLabel}>Locations</span>
+                    </div>
+                    <div className={`${styles.statCard} ${styles.statGold}`} onClick={() => setActiveTab('data')}>
+                        <span className={styles.statNum}>{combinations}</span>
+                        <span className={styles.statLabel}>Possible Articles</span>
                     </div>
                 </div>
 
                 <div className={styles.tabs}>
-                    <button
-                        className={activeTab === 'seo' ? styles.activeTab : styles.tab}
-                        onClick={() => setActiveTab('seo')}
-                    >
+                    <button className={activeTab === 'seo' ? styles.activeTab : styles.tab} onClick={() => setActiveTab('seo')}>
                         SEO Articles
                     </button>
-                    <button
-                        className={activeTab === 'products' ? styles.activeTab : styles.tab}
-                        onClick={() => setActiveTab('products')}
-                    >
+                    <button className={activeTab === 'products' ? styles.activeTab : styles.tab} onClick={() => setActiveTab('products')}>
                         Products
                     </button>
-                    <button
-                        className={activeTab === 'tools' ? styles.activeTab : styles.tab}
-                        onClick={() => setActiveTab('tools')}
-                    >
-                        + Add Category
+                    <button className={activeTab === 'data' ? styles.activeTab : styles.tab} onClick={() => setActiveTab('data')}>
+                        SEO Data (Keywords, Locations, Categories)
                     </button>
                 </div>
             </header>
 
             {error && <div className={styles.error}>{error}</div>}
 
+            {/* ─── SEO ARTICLES TAB ─── */}
             {activeTab === 'seo' && (
                 <div className={styles.view}>
                     <div className={styles.seoMeta}>
                         <span className={styles.metaBadgeLive}>{liveCount} Live</span>
                         <span className={styles.metaBadgePending}>{pendingCount} Pending</span>
-                        <span className={styles.metaNote}>Click an article's content to edit it, then click away to auto-save.</span>
+                        <span className={styles.metaNote}>Click content to edit, click away to auto-save.</span>
                     </div>
                     <div className={styles.list}>
                         {articles.map((article) => (
@@ -193,7 +205,9 @@ export default function AdminDashboard() {
                                 <div className={styles.cardHeader}>
                                     <h3 className={styles.slug}>{article.slug}</h3>
                                     <div className={styles.badges}>
-                                        {article.is_approved ? <span className={styles.badgeLive}>LIVE</span> : <span className={styles.badgePending}>PENDING</span>}
+                                        {article.is_approved
+                                            ? <span className={styles.badgeLive}>LIVE</span>
+                                            : <span className={styles.badgePending}>PENDING</span>}
                                     </div>
                                 </div>
                                 <textarea
@@ -223,6 +237,7 @@ export default function AdminDashboard() {
                 </div>
             )}
 
+            {/* ─── PRODUCTS TAB ─── */}
             {activeTab === 'products' && (
                 <div className={styles.view}>
                     <div className={styles.list}>
@@ -240,7 +255,8 @@ export default function AdminDashboard() {
                                         <label>Slug (Unique ID)</label>
                                         <input
                                             defaultValue={product.id}
-                                            onBlur={(e) => saveProductEdit(product.id, 'id', e.target.value)}
+                                            disabled
+                                            style={{ opacity: 0.5 }}
                                         />
                                     </div>
                                     <div className={styles.fieldGroup}>
@@ -251,15 +267,23 @@ export default function AdminDashboard() {
                                             onBlur={(e) => saveProductEdit(product.id, 'price', e.target.value)}
                                         />
                                     </div>
+                                    <div className={styles.fieldGroup}>
+                                        <label>Image URL</label>
+                                        <input
+                                            defaultValue={product.image_url}
+                                            onBlur={(e) => saveProductEdit(product.id, 'image_url', e.target.value)}
+                                            placeholder="https://..."
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className={styles.fieldGroup}>
-                                    <label>AI Context (What should the story mention about this product?)</label>
+                                    <label>AI Context (what should articles say about this product?)</label>
                                     <textarea
                                         className={styles.miniEditor}
                                         defaultValue={product.ai_context}
                                         onBlur={(e) => saveProductEdit(product.id, 'ai_context', e.target.value)}
-                                        placeholder="e.g. Focus on natural ingredients and zero side effects..."
+                                        placeholder="e.g. Natural ingredients, clinically tested, no side effects, fast results..."
                                     />
                                 </div>
 
@@ -289,64 +313,194 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            {activeTab === 'tools' && (
+            {/* ─── SEO DATA TAB ─── */}
+            {activeTab === 'data' && (
                 <div className={styles.view}>
+                    <div className={styles.dataExplainer}>
+                        <strong>How article generation works:</strong> AI writes one article for every combination of
+                        <span className={styles.pill}>Department</span> +
+                        <span className={styles.pill}>Category</span> +
+                        <span className={styles.pill}>Keyword</span> +
+                        <span className={styles.pill}>Location</span>.
+                        Currently that is <strong>{combinations} possible articles</strong>. Add more keywords or locations to scale up.
+                    </div>
+
+                    {/* KEYWORDS / TAGS */}
                     <section className={styles.toolSection}>
-                        <h2>Add New Category</h2>
-                        <p>Create a new category. After adding it, run article generation so AI writes articles for this category.</p>
+                        <h2>Keywords / Tags <span className={styles.sectionCount}>({tags.length})</span></h2>
+                        <p>These are the search intent words. Each keyword creates a whole new set of articles across all categories and locations. Examples: "erectile dysfunction", "low libido", "premature ejaculation", "low energy".</p>
                         <div className={styles.prodRow}>
                             <div className={styles.fieldGroup}>
-                                <label>Category Name</label>
+                                <label>Keyword / Tag Name</label>
                                 <input
-                                    value={newCat.name}
-                                    onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                                    placeholder="e.g. Ifu ya Siporo"
+                                    value={newTag.name}
+                                    onChange={(e) => setNewTag({ name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. low libido"
                                 />
                             </div>
                             <div className={styles.fieldGroup}>
-                                <label>Slug (URL ID — no spaces)</label>
+                                <label>Slug (auto-filled)</label>
                                 <input
-                                    value={newCat.slug}
-                                    onChange={(e) => setNewCat({ ...newCat, slug: e.target.value.toLowerCase().replace(/ /g, '-') })}
-                                    placeholder="e.g. ifu-siporo"
+                                    value={newTag.slug}
+                                    onChange={(e) => setNewTag({ ...newTag, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. low-libido"
                                 />
-                            </div>
-                            <div className={styles.fieldGroup}>
-                                <label>Department</label>
-                                <select
-                                    value={newCat.department_id}
-                                    onChange={(e) => setNewCat({ ...newCat, department_id: e.target.value })}
-                                >
-                                    <option value="">Select Department...</option>
-                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
                             </div>
                         </div>
-                        <button className={styles.approveBtn} onClick={addCategory} disabled={saving === 'new-cat'}>
-                            {saving === 'new-cat' ? 'Saving...' : '+ Add Category'}
+                        <button
+                            className={styles.approveBtn}
+                            onClick={() => addRow('tags', newTag, 'tags', () => setNewTag({ name: '', slug: '' }), 'keyword')}
+                            disabled={saving === 'add-tags'}
+                        >
+                            {saving === 'add-tags' ? 'Saving...' : '+ Add Keyword'}
                         </button>
-                    </section>
-
-                    <section className={styles.toolSection}>
-                        <h2>Existing Categories ({categories.length})</h2>
-                        <div className={styles.catList}>
-                            {categories.map(c => (
-                                <div key={c.id} className={styles.catChip}>
-                                    <span className={styles.catName}>{c.name}</span>
-                                    <span className={styles.catSlug}>{c.id}</span>
+                        <div className={styles.catList} style={{ marginTop: '1.5rem' }}>
+                            {tags.map(t => (
+                                <div key={t.id} className={styles.catChip}>
+                                    <span className={styles.catName}>{t.name}</span>
+                                    <span className={styles.catSlug}>{t.slug}</span>
+                                    <button className={styles.chipDelete} onClick={() => deleteRow('tags', t.id, setTags)}>×</button>
                                 </div>
                             ))}
                         </div>
                     </section>
 
+                    {/* LOCATIONS */}
                     <section className={styles.toolSection}>
-                        <h2>Generate Articles (AI)</h2>
-                        <p>AI will write new articles for all category/tag/location combinations that don't have content yet. New articles start as Pending — review them in the SEO Articles tab.</p>
+                        <h2>Locations <span className={styles.sectionCount}>({locations.length})</span></h2>
+                        <p>Cities or areas to target. Each location creates articles for every keyword+category. Examples: "Kigali", "Huye", "Musanze", "Rubavu".</p>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Location Name</label>
+                                <input
+                                    value={newLoc.name}
+                                    onChange={(e) => setNewLoc({ name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. Musanze"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Slug (auto-filled)</label>
+                                <input
+                                    value={newLoc.slug}
+                                    onChange={(e) => setNewLoc({ ...newLoc, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. musanze"
+                                />
+                            </div>
+                        </div>
                         <button
-                            className={styles.generateBtn}
-                            onClick={triggerAI}
-                            disabled={genStatus !== null}
+                            className={styles.approveBtn}
+                            onClick={() => addRow('locations', newLoc, 'locations', () => setNewLoc({ name: '', slug: '' }), 'location')}
+                            disabled={saving === 'add-locations'}
                         >
+                            {saving === 'add-locations' ? 'Saving...' : '+ Add Location'}
+                        </button>
+                        <div className={styles.catList} style={{ marginTop: '1.5rem' }}>
+                            {locations.map(l => (
+                                <div key={l.id} className={styles.catChip}>
+                                    <span className={styles.catName}>{l.name}</span>
+                                    <span className={styles.catSlug}>{l.slug}</span>
+                                    <button className={styles.chipDelete} onClick={() => deleteRow('locations', l.id, setLocations)}>×</button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* CATEGORIES */}
+                    <section className={styles.toolSection}>
+                        <h2>Categories <span className={styles.sectionCount}>({categories.length})</span></h2>
+                        <p>Product types within a department. Examples: "Capsules" (ibinini), "Creams" (amavuta). Each category maps to a department.</p>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Category Name</label>
+                                <input
+                                    value={newCat.name}
+                                    onChange={(e) => setNewCat({ ...newCat, name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. Ibinini (Capsules)"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Slug (auto-filled)</label>
+                                <input
+                                    value={newCat.slug}
+                                    onChange={(e) => setNewCat({ ...newCat, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. ibinini"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Department</label>
+                                <select value={newCat.department_id} onChange={(e) => setNewCat({ ...newCat, department_id: e.target.value })}>
+                                    <option value="">Select Department...</option>
+                                    {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <button
+                            className={styles.approveBtn}
+                            onClick={() => addRow('categories', newCat, 'categories', () => setNewCat({ name: '', slug: '', department_id: '' }), 'category')}
+                            disabled={saving === 'add-categories'}
+                        >
+                            {saving === 'add-categories' ? 'Saving...' : '+ Add Category'}
+                        </button>
+                        <div className={styles.catList} style={{ marginTop: '1.5rem' }}>
+                            {categories.map(c => (
+                                <div key={c.id} className={styles.catChip}>
+                                    <span className={styles.catName}>{c.name}</span>
+                                    <span className={styles.catSlug}>{c.id} · {departments.find(d => d.id === c.department_id)?.name}</span>
+                                    <button className={styles.chipDelete} onClick={() => deleteRow('categories', c.id, setCategories)}>×</button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* DEPARTMENTS */}
+                    <section className={styles.toolSection}>
+                        <h2>Departments <span className={styles.sectionCount}>({departments.length})</span></h2>
+                        <p>Top-level groupings. Examples: "Men's Health", "Women's Health". Categories are assigned to a department.</p>
+                        <div className={styles.prodRow}>
+                            <div className={styles.fieldGroup}>
+                                <label>Department Name</label>
+                                <input
+                                    value={newDept.name}
+                                    onChange={(e) => setNewDept({ name: e.target.value, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. Men's Health"
+                                />
+                            </div>
+                            <div className={styles.fieldGroup}>
+                                <label>Slug (auto-filled)</label>
+                                <input
+                                    value={newDept.slug}
+                                    onChange={(e) => setNewDept({ ...newDept, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                                    placeholder="e.g. mens-health"
+                                />
+                            </div>
+                        </div>
+                        <button
+                            className={styles.approveBtn}
+                            onClick={() => addRow('departments', newDept, 'departments', () => setNewDept({ name: '', slug: '' }), 'department')}
+                            disabled={saving === 'add-departments'}
+                        >
+                            {saving === 'add-departments' ? 'Saving...' : '+ Add Department'}
+                        </button>
+                        <div className={styles.catList} style={{ marginTop: '1.5rem' }}>
+                            {departments.map(d => (
+                                <div key={d.id} className={styles.catChip}>
+                                    <span className={styles.catName}>{d.name}</span>
+                                    <span className={styles.catSlug}>{d.slug}</span>
+                                    <button className={styles.chipDelete} onClick={() => deleteRow('departments', d.id, setDepartments)}>×</button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    {/* GENERATE */}
+                    <section className={styles.toolSection}>
+                        <h2>Generate AI Articles</h2>
+                        <p>
+                            AI will write articles for every missing <strong>Keyword × Category × Location</strong> combination.
+                            Currently <strong>{combinations} total combinations</strong> — articles already written are skipped.
+                            New articles appear as Pending in the SEO Articles tab for review.
+                        </p>
+                        <button className={styles.generateBtn} onClick={triggerAI} disabled={genStatus !== null}>
                             {genStatus || '✦ Generate New Articles'}
                         </button>
                     </section>
