@@ -93,10 +93,11 @@ export default function AdminDashboard() {
     }
 
     async function saveProductEdit(id, field, value) {
-        setSaving(id);
+        setSaving(id + '-' + field);
         const { error } = await supabase.from('products').update({ [field]: value }).eq('id', id);
         if (error) alert(error.message);
-        setSaving(null);
+        else setSaving(id + '-' + field + '-done');
+        setTimeout(() => setSaving(null), 1500);
     }
 
     // --- Generic add helpers ---
@@ -350,22 +351,38 @@ export default function AdminDashboard() {
                         {products.length === 0 && (
                             <p style={{ color: '#666', padding: '1rem 0' }}>No products yet. Add your first product above.</p>
                         )}
-                        {products.map((product) => (
+                        {products.map((product) => {
+                            const isSavingThis = saving && saving.startsWith(product.id);
+                            const savedThis = saving && saving === product.id + '-' + saving.split('-').slice(1).join('-') + '-done';
+                            const saveLabel = isSavingThis
+                                ? (saving.endsWith('-done') ? '✓ Saved' : 'Saving...')
+                                : null;
+                            return (
                             <div key={product.id} className={styles.card}>
+                                <div className={styles.cardHeader}>
+                                    <h3 className={styles.slug}>{product.name}</h3>
+                                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                                        {saveLabel && (
+                                            <span style={{ fontSize: '0.8rem', color: saving.endsWith('-done') ? '#4caf50' : '#d4af37' }}>
+                                                {saveLabel}
+                                            </span>
+                                        )}
+                                        <button
+                                            className={styles.deleteBtn}
+                                            onClick={async () => {
+                                                if (!confirm(`Delete product: ${product.name}?`)) return;
+                                                await supabase.from('products').delete().eq('id', product.id);
+                                                fetchAllData();
+                                            }}
+                                        >Delete</button>
+                                    </div>
+                                </div>
                                 <div className={styles.prodRow}>
                                     <div className={styles.fieldGroup}>
                                         <label>Product Name</label>
                                         <input
                                             defaultValue={product.name}
                                             onBlur={(e) => saveProductEdit(product.id, 'name', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className={styles.fieldGroup}>
-                                        <label>Slug (Unique ID)</label>
-                                        <input
-                                            defaultValue={product.id}
-                                            disabled
-                                            style={{ opacity: 0.5 }}
                                         />
                                     </div>
                                     <div className={styles.fieldGroup}>
@@ -387,7 +404,7 @@ export default function AdminDashboard() {
                                 </div>
 
                                 <div className={styles.fieldGroup}>
-                                    <label>Problems This Product Solves <span style={{ color: '#888', fontWeight: 400 }}>(comma-separated)</span></label>
+                                    <label>Problems This Product Solves <span style={{ color: '#888', fontWeight: 400 }}>(comma-separated — shown as chips on card)</span></label>
                                     <input
                                         defaultValue={product.problems_solved}
                                         onBlur={(e) => saveProductEdit(product.id, 'problems_solved', e.target.value)}
@@ -396,12 +413,12 @@ export default function AdminDashboard() {
                                 </div>
 
                                 <div className={styles.fieldGroup}>
-                                    <label>AI Context (what should articles say about this product?)</label>
+                                    <label>AI Context <span style={{ color: '#888', fontWeight: 400 }}>(used when generating articles — describe the product benefits)</span></label>
                                     <textarea
                                         className={styles.miniEditor}
                                         defaultValue={product.ai_context}
                                         onBlur={(e) => saveProductEdit(product.id, 'ai_context', e.target.value)}
-                                        placeholder="e.g. Natural ingredients, clinically tested, no side effects, fast results..."
+                                        placeholder="e.g. Natural ingredients, clinically tested, no side effects, results in 2 weeks..."
                                     />
                                 </div>
 
@@ -412,6 +429,7 @@ export default function AdminDashboard() {
                                             defaultValue={product.department_id}
                                             onChange={(e) => saveProductEdit(product.id, 'department_id', e.target.value)}
                                         >
+                                            <option value="">— None —</option>
                                             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                         </select>
                                     </div>
@@ -421,12 +439,17 @@ export default function AdminDashboard() {
                                             defaultValue={product.category_id}
                                             onChange={(e) => saveProductEdit(product.id, 'category_id', e.target.value)}
                                         >
+                                            <option value="">— None —</option>
                                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                         </select>
                                     </div>
                                 </div>
+                                <p style={{ fontSize: '0.75rem', color: '#555', marginTop: '0.5rem' }}>
+                                    💡 Click any field and then click away to auto-save.
+                                </p>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
