@@ -4,12 +4,20 @@ import OpenAI from "openai";
 export const maxDuration = 60;
 
 export async function POST(request) {
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     try {
+        if (!process.env.OPENAI_API_KEY) {
+            return new Response(JSON.stringify({ error: 'OPENAI_API_KEY is not set in environment variables. Go to Vercel → Settings → Environment Variables and add it.' }), { status: 500 });
+        }
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            return new Response(JSON.stringify({ error: 'Supabase environment variables are not set.' }), { status: 500 });
+        }
+
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
         const body = await request.json();
         if (body.secret !== 'burungi-secure-gen') {
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
@@ -94,6 +102,7 @@ export async function POST(request) {
 
         return new Response(JSON.stringify({ success: true, count: totalGenerated, remaining }), { status: 200 });
     } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+        const msg = error?.message || String(error) || 'Unknown server error';
+        return new Response(JSON.stringify({ error: msg }), { status: 500 });
     }
 }
