@@ -27,10 +27,18 @@ export async function POST(request) {
                 if (cat.department_id !== dept.id) continue;
                 for (const tag of deptTags) {
                     for (const loc of locations) {
-                        const baseSlug = `${dept.slug}---${cat.slug}---${tag.slug}-in-${loc.slug}`;
-                        const enSlug = `en---${baseSlug}`;
+                        const slug = `${dept.slug}---${cat.slug}---${tag.slug}-in-${loc.slug}`;
 
-                        // Fetch products for context once per combination
+                        // Skip if already exists
+                        const { data: existing } = await supabase
+                            .from('seo_articles')
+                            .select('slug')
+                            .eq('slug', slug)
+                            .single();
+
+                        if (existing) continue;
+
+                        // Fetch products for context
                         const { data: catProducts } = await supabase
                             .from('products')
                             .select('name, ai_context')
@@ -40,58 +48,23 @@ export async function POST(request) {
                             ? catProducts.map(p => `- ${p.name}: ${p.ai_context || ''}`).join('\n')
                             : 'General healthcare context.';
 
-                        // ── Kinyarwanda Article ──────────────────────────────
-                        const { data: existingRw } = await supabase
-                            .from('seo_articles')
-                            .select('slug')
-                            .eq('slug', baseSlug)
-                            .single();
+                        const prompt = `Write a 200-word SEO article in English for BurungiHealth, a Rwandan health product store. Topic: the best ${cat.name} solution for "${tag.name}" in ${loc.name}, Rwanda. Be specific, persuasive, and mention fast WhatsApp delivery. Product context:\n${productContext}\nJust plain paragraphs, no headings or bullet points.`;
 
-                        if (!existingRw) {
-                            const rwPrompt = `Write a 150-word SEO optimized paragraph in native Kinyarwanda about why a ${cat.name} from the ${dept.name} department is the absolute best and safest solution for someone experiencing "${tag.name}" in ${loc.name}. Product Context:\n${productContext}\nJust raw text, no headings.`;
+                        const res = await openai.chat.completions.create({
+                            model: "gpt-4o-mini",
+                            messages: [{ role: "user", content: prompt }],
+                            temperature: 0.7,
+                        });
 
-                            const rwRes = await openai.chat.completions.create({
-                                model: "gpt-4o-mini",
-                                messages: [{ role: "user", content: rwPrompt }],
-                                temperature: 0.7,
+                        const text = res.choices[0]?.message?.content;
+                        if (text) {
+                            await supabase.from('seo_articles').insert({
+                                slug,
+                                content: text,
+                                language: 'en',
+                                is_approved: false
                             });
-
-                            const rwText = rwRes.choices[0]?.message?.content;
-                            if (rwText) {
-                                await supabase.from('seo_articles').insert({
-                                    slug: baseSlug,
-                                    content: rwText,
-                                    is_approved: false
-                                });
-                                totalGenerated++;
-                            }
-                        }
-
-                        // ── English Article ──────────────────────────────────
-                        const { data: existingEn } = await supabase
-                            .from('seo_articles')
-                            .select('slug')
-                            .eq('slug', enSlug)
-                            .single();
-
-                        if (!existingEn) {
-                            const enPrompt = `Write a 150-word SEO optimized paragraph in English about why a ${cat.name} from the ${dept.name} health category is the best and safest solution for someone experiencing "${tag.name}" in ${loc.name}, Rwanda. Be specific and persuasive. Product Context:\n${productContext}\nJust raw text, no headings.`;
-
-                            const enRes = await openai.chat.completions.create({
-                                model: "gpt-4o-mini",
-                                messages: [{ role: "user", content: enPrompt }],
-                                temperature: 0.7,
-                            });
-
-                            const enText = enRes.choices[0]?.message?.content;
-                            if (enText) {
-                                await supabase.from('seo_articles').insert({
-                                    slug: enSlug,
-                                    content: enText,
-                                    is_approved: false
-                                });
-                                totalGenerated++;
-                            }
+                            totalGenerated++;
                         }
                     }
                 }
