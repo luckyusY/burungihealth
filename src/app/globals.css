@@ -237,7 +237,7 @@ button {
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--border-color);
   position: fixed;
-  top: 33px; /* height of single-line top bar on desktop */
+  top: 0;
   width: 100%;
   z-index: 1000;
   padding: 0.85rem 0;
@@ -245,7 +245,7 @@ button {
 
 @media (max-width: 768px) {
   .navbar {
-    top: 33px; /* top-bar is also single-line on mobile now */
+    top: 0;
     padding: 0.7rem 0;
   }
 }
@@ -294,14 +294,14 @@ button {
   border: 1px solid var(--primary);
 }
 
-/* Specific page offset for fixed navbar + top bar */
+/* Specific page offset for fixed navbar */
 main {
-  padding-top: 100px; /* top-bar ~33px + navbar ~67px */
+  padding-top: 68px;
 }
 
 @media (max-width: 768px) {
   main {
-    padding-top: 95px;
+    padding-top: 60px;
   }
 }
 
