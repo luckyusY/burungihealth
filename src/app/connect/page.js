@@ -3,10 +3,11 @@ export const metadata = {
   description: 'Connect your TikTok account to MyUploader to start auto-posting videos from Telegram.',
 };
 
-export default function ConnectPage({ searchParams }) {
-  const chatId = searchParams?.chat_id;
-  const success = searchParams?.success;
-  const error = searchParams?.error;
+export default async function ConnectPage({ searchParams }) {
+  const params = await searchParams;
+  const chatId = params?.chat_id;
+  const success = params?.success;
+  const error = params?.error;
 
   return (
     <div style={s.wrapper}>
