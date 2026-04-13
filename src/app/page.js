@@ -1,163 +1,365 @@
 import Link from 'next/link';
-import Image from 'next/image';
-import styles from './page.module.css';
-import { supabase } from '../lib/supabase';
-import ContactTools from '@/components/ContactTools';
-import HeroParallaxScene from '@/components/HeroParallaxScene';
-import { CONTACT, buildCallUrl, buildWhatsAppUrl } from '@/lib/contact';
-
-export const revalidate = 60;
 
 export const metadata = {
-  title: 'BurungiHealth | Umuti w\'ukuri ku buzima bw\'imyororokere',
-  description: 'Gira ubuzima bwiza buzira umuze. Shakisha imiti igezweho yo kongera igitsina, kuvura kurangiza vuba no gushimisha umukunzi wawe.',
-}
+  title: 'MyUploader – Auto-post from Telegram to TikTok',
+  description: 'MyUploader lets you automatically upload videos from Telegram to your TikTok account. Connect once, post effortlessly.',
+};
 
-export default async function Home() {
-  let products = [];
-
-  const orderedRes = await supabase
-    .from('products')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(6);
-
-  if (orderedRes.error) {
-    const fallbackRes = await supabase
-      .from('products')
-      .select('*')
-      .limit(6);
-
-    if (fallbackRes.error) {
-      console.error('Homepage products query failed:', fallbackRes.error.message);
-    } else {
-      products = fallbackRes.data || [];
-    }
-  } else {
-    products = orderedRes.data || [];
-  }
-
-  const heroWhatsAppUrl = buildWhatsAppUrl(
-    CONTACT.primaryPhoneDigits,
-    'Hello, I want help choosing the right product.'
-  );
-
+export default function Home() {
   return (
-    <main className={styles.main}>
-      <div className={styles.hero}>
-        <HeroParallaxScene />
-        <div className={`container ${styles.heroContainer}`}>
-          <div className={styles.heroGrid}>
-            <div className={styles.heroContent}>
-              <span className={`badge ${styles.fadeUp}`}>BurungiHealth</span>
-              <h1 className={styles.title}>
-                <span className={styles.fadeUpDelay1}>Ubuzima bwiza,</span>
-                <br />
-                <span className={styles.fadeUpDelay2}>Ikizere cyuzuye.</span>
-              </h1>
-              <p className={`${styles.subtitle} ${styles.fadeUpDelay3}`}>
-                Shaka ibisubizo nyabyo ku bibazo by&apos;imyororokere. Gukira kurangiza vuba, kubura ubushake, cyangwa kongera igitsina byose birashoboka ukoresheje inyongeramusaruro zizewe nka Maxman.
-              </p>
-              <div className={`${styles.actions} ${styles.fadeUpDelay4}`}>
-                <a href={heroWhatsAppUrl} className={styles.primaryBtn} target="_blank" rel="noreferrer">
-                  Tuvugishe Kuri WhatsApp
-                </a>
-                <a href={CONTACT.address.mapUrl} className={styles.secondaryBtn} target="_blank" rel="noreferrer">
-                  Reba Address
-                </a>
-              </div>
-            </div>
-            <ContactTools className={`${styles.heroContactCard} ${styles.fadeUpDelay4}`} />
+    <main style={s.main}>
+
+      {/* Hero */}
+      <section style={s.hero}>
+        <div style={s.heroInner}>
+          <span style={s.badge}>Telegram → TikTok</span>
+          <h1 style={s.h1}>Upload to TikTok<br />directly from Telegram</h1>
+          <p style={s.heroSub}>
+            MyUploader connects your Telegram bot to your TikTok account.
+            Forward any video — it posts automatically. No apps, no manual uploading.
+          </p>
+          <div style={s.heroBtns}>
+            <a href="mailto:nkundimanarugirayahaya@gmail.com" style={s.btnPrimary}>Get Early Access</a>
+            <Link href="#how-it-works" style={s.btnOutline}>See How It Works</Link>
           </div>
         </div>
-      </div>
-
-      <section className="section">
-        <div className="container">
-          <h2 className={styles.sectionTitle}>Gura Ibyo Ukeneye</h2>
-          <div className={styles.grid}>
-            <Link href="/category/ibinini" className={styles.card}>
-              <div className={styles.imgWrap}>
-                <Image
-                  src="https://www.arogga.com/_next/image?url=https%3A%2F%2Fcdn2.arogga.com%2FeyJidWNrZXQiOiJhcm9nZ2EiLCJrZXkiOiJtZWRpY2luZVwvNDRcLzQ0MjMxLU1heG1hbi1jOXhqLnBuZyIsImVkaXRzIjp7InJlc2l6ZSI6eyJ3aWR0aCI6MTAwMCwiaGVpZ2h0IjoxMDAwLCJmaXQiOiJvdXRzaWRlIn0sIm92ZXJsYXlXaXRoIjp7ImJ1Y2tldCI6ImFyb2dnYSIsImtleSI6Im1pc2NcL3dtLnBuZyIsImFscGhhIjo5MH19fQ%3D%3D&w=1280&q=75"
-                  alt="Ibinini"
-                  fill
-                  className={styles.img}
-                />
+        <div style={s.heroVisual}>
+          <div style={s.flowCard}>
+            <div style={s.flowStep}>
+              <div style={s.flowIcon}>📩</div>
+              <div>
+                <div style={s.flowLabel}>Step 1</div>
+                <div style={s.flowText}>Forward video to Telegram bot</div>
               </div>
-              <div className={styles.cardContent}>
-                <h3>Ibinini (Capsules)</h3>
-                <p>Ibinini byizewe mu kugarura imbaraga</p>
+            </div>
+            <div style={s.flowArrow}>↓</div>
+            <div style={s.flowStep}>
+              <div style={s.flowIcon}>⚡</div>
+              <div>
+                <div style={s.flowLabel}>Step 2</div>
+                <div style={s.flowText}>MyUploader processes it automatically</div>
               </div>
-            </Link>
-            <Link href="/category/amavuta" className={styles.card}>
-              <div className={styles.imgWrap}>
-                <Image
-                  src="https://m.media-amazon.com/images/I/71fl3xZuzwL._AC_SL1500_.jpg"
-                  alt="Amavuta"
-                  fill
-                  className={styles.img}
-                />
+            </div>
+            <div style={s.flowArrow}>↓</div>
+            <div style={s.flowStep}>
+              <div style={s.flowIcon}>🎵</div>
+              <div>
+                <div style={s.flowLabel}>Step 3</div>
+                <div style={s.flowText}>Video goes live on your TikTok</div>
               </div>
-              <div className={styles.cardContent}>
-                <h3>Amavuta (Creams)</h3>
-                <p>Amavuta yo kongera ingufu no gukomera</p>
-              </div>
-            </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      {products && products.length > 0 && (
-        <section className={styles.featuredSection}>
-          <div className="container">
-            <h2 className={styles.sectionTitle}>Ibicuruzwa Byatoranyijwe</h2>
-            <div className={styles.productGrid}>
-              {products.map((product) => (
-                <article key={product.id} className={styles.productCard}>
-                  <span className={styles.productBadge}>Fast Delivery</span>
-                  <div className={styles.productImgWrap}>
-                    <Image
-                      src={product.image_url || 'https://via.placeholder.com/300'}
-                      alt={product.name}
-                      fill
-                      className={styles.img}
-                    />
-                  </div>
-                  <div className={styles.productInfo}>
-                    <p className={styles.productMeta}>Discreet packaging available</p>
-                    <h3 className={styles.productName}>{product.name}</h3>
-                    {product.problems_solved && (
-                      <div className={styles.problemChips}>
-                        {product.problems_solved.split(',').map((p) => p.trim()).filter(Boolean).map((p) => (
-                          <span key={p} className={styles.problemChip}>+ {p}</span>
-                        ))}
-                      </div>
-                    )}
-                    <p className={styles.productPrice}>
-                      {product.price != null ? Number(product.price).toLocaleString() : 'Ask for Price'} {product.price != null ? 'RWF' : ''}
-                    </p>
-                    <div className={styles.productActions}>
-                      <a
-                        href={buildWhatsAppUrl(CONTACT.primaryPhoneDigits, `Hello, I want to order: ${product.name}`)}
-                        className={styles.buyBtn}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Buy on WhatsApp
-                      </a>
-                      <a href={buildCallUrl(CONTACT.primaryPhoneDigits)} className={styles.callBtn}>
-                        Call
-                      </a>
-                    </div>
-                    <p className={styles.productAddress}>{CONTACT.address.title}</p>
-                  </div>
-                </article>
-              ))}
-            </div>
+      {/* Features */}
+      <section style={s.section} id="features">
+        <div style={s.sectionInner}>
+          <h2 style={s.h2}>Why MyUploader?</h2>
+          <p style={s.sectionSub}>Built for creators who want to post more without the hassle.</p>
+          <div style={s.featGrid}>
+            {[
+              { icon: '🤖', title: 'Fully Automated', desc: 'Set it up once. Every video you forward gets uploaded to TikTok without any extra steps.' },
+              { icon: '🔐', title: 'Secure OAuth Login', desc: 'We use TikTok\'s official Login Kit. Your password is never stored — only a secure access token.' },
+              { icon: '⚡', title: 'Instant Posting', desc: 'Videos are processed and submitted to TikTok within seconds of being forwarded.' },
+              { icon: '📊', title: 'Upload History', desc: 'Track every upload — see what posted, what failed, and when.' },
+              { icon: '📱', title: 'Works on Any Device', desc: 'Telegram is available everywhere. Trigger uploads from your phone, tablet, or desktop.' },
+              { icon: '🛡️', title: 'Privacy First', desc: 'Your videos are deleted from our servers immediately after upload. We don\'t keep your content.' },
+            ].map(f => (
+              <div key={f.title} style={s.featCard}>
+                <div style={s.featIcon}>{f.icon}</div>
+                <h3 style={s.featTitle}>{f.title}</h3>
+                <p style={s.featDesc}>{f.desc}</p>
+              </div>
+            ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section style={s.sectionDark} id="how-it-works">
+        <div style={s.sectionInner}>
+          <h2 style={s.h2}>How It Works</h2>
+          <p style={s.sectionSub}>Three steps and you&apos;re live on TikTok.</p>
+          <div style={s.stepsGrid}>
+            {[
+              { n: '01', title: 'Connect Your TikTok', desc: 'Log in with TikTok via our secure OAuth flow. Authorize MyUploader to post on your behalf.' },
+              { n: '02', title: 'Link Your Telegram Bot', desc: 'Start a chat with the MyUploader bot on Telegram. It\'s instant — no configuration needed.' },
+              { n: '03', title: 'Forward & Post', desc: 'Forward any video to the bot. It automatically uploads to your TikTok account and confirms when done.' },
+            ].map(step => (
+              <div key={step.n} style={s.stepCard}>
+                <div style={s.stepNum}>{step.n}</div>
+                <h3 style={s.stepTitle}>{step.title}</h3>
+                <p style={s.stepDesc}>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={s.ctaSection}>
+        <div style={s.ctaInner}>
+          <h2 style={s.ctaH2}>Ready to automate your TikTok uploads?</h2>
+          <p style={s.ctaSub}>Join the waitlist and be the first to get access.</p>
+          <a href="mailto:nkundimanarugirayahaya@gmail.com" style={s.btnPrimary}>
+            Contact Us to Get Started
+          </a>
+          <p style={s.ctaLinks}>
+            <Link href="/terms" style={s.footLink}>Terms of Service</Link>
+            {' · '}
+            <Link href="/privacy" style={s.footLink}>Privacy Policy</Link>
+          </p>
+        </div>
+      </section>
+
     </main>
   );
 }
+
+const s = {
+  main: {
+    background: '#0a0a0a',
+    color: '#f5f5f5',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+  },
+
+  // Hero
+  hero: {
+    minHeight: '90vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '80px 24px 60px',
+    gap: '60px',
+    flexWrap: 'wrap',
+    background: 'radial-gradient(ellipse at 20% 50%, rgba(255,0,80,0.08) 0%, transparent 60%), #0a0a0a',
+  },
+  heroInner: {
+    flex: '1 1 400px',
+    maxWidth: '560px',
+  },
+  badge: {
+    display: 'inline-block',
+    background: 'rgba(255,0,80,0.12)',
+    color: '#ff2d55',
+    border: '1px solid rgba(255,0,80,0.3)',
+    borderRadius: '999px',
+    padding: '4px 14px',
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    marginBottom: '20px',
+  },
+  h1: {
+    fontSize: 'clamp(2.2rem, 5vw, 3.5rem)',
+    fontWeight: '800',
+    lineHeight: '1.15',
+    marginBottom: '20px',
+    letterSpacing: '-0.02em',
+  },
+  heroSub: {
+    fontSize: '1.1rem',
+    color: '#a3a3a3',
+    lineHeight: '1.7',
+    marginBottom: '36px',
+    maxWidth: '460px',
+  },
+  heroBtns: {
+    display: 'flex',
+    gap: '14px',
+    flexWrap: 'wrap',
+  },
+  btnPrimary: {
+    background: '#ff2d55',
+    color: '#fff',
+    padding: '14px 28px',
+    borderRadius: '999px',
+    fontWeight: '700',
+    fontSize: '0.95rem',
+    textDecoration: 'none',
+    display: 'inline-block',
+    transition: 'opacity 0.2s',
+  },
+  btnOutline: {
+    background: 'transparent',
+    color: '#f5f5f5',
+    padding: '14px 28px',
+    borderRadius: '999px',
+    fontWeight: '600',
+    fontSize: '0.95rem',
+    textDecoration: 'none',
+    border: '1px solid rgba(255,255,255,0.2)',
+    display: 'inline-block',
+  },
+
+  // Flow card
+  heroVisual: {
+    flex: '0 1 340px',
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  flowCard: {
+    background: '#141414',
+    border: '1px solid #262626',
+    borderRadius: '20px',
+    padding: '32px',
+    width: '300px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  flowStep: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '14px',
+    background: '#1a1a1a',
+    borderRadius: '12px',
+  },
+  flowIcon: {
+    fontSize: '1.8rem',
+    flexShrink: 0,
+  },
+  flowLabel: {
+    fontSize: '0.72rem',
+    color: '#ff2d55',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    marginBottom: '3px',
+  },
+  flowText: {
+    fontSize: '0.9rem',
+    color: '#e5e5e5',
+    fontWeight: '500',
+  },
+  flowArrow: {
+    textAlign: 'center',
+    color: '#444',
+    fontSize: '1.2rem',
+    padding: '2px 0',
+  },
+
+  // Sections
+  section: {
+    padding: '80px 24px',
+    background: '#0a0a0a',
+  },
+  sectionDark: {
+    padding: '80px 24px',
+    background: '#0f0f0f',
+    borderTop: '1px solid #1a1a1a',
+    borderBottom: '1px solid #1a1a1a',
+  },
+  sectionInner: {
+    maxWidth: '1100px',
+    margin: '0 auto',
+    textAlign: 'center',
+  },
+  h2: {
+    fontSize: 'clamp(1.8rem, 3vw, 2.6rem)',
+    fontWeight: '800',
+    marginBottom: '12px',
+    letterSpacing: '-0.02em',
+  },
+  sectionSub: {
+    color: '#a3a3a3',
+    fontSize: '1.05rem',
+    marginBottom: '52px',
+  },
+
+  // Features grid
+  featGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '20px',
+    textAlign: 'left',
+  },
+  featCard: {
+    background: '#141414',
+    border: '1px solid #262626',
+    borderRadius: '16px',
+    padding: '28px',
+  },
+  featIcon: {
+    fontSize: '2rem',
+    marginBottom: '14px',
+  },
+  featTitle: {
+    fontSize: '1.05rem',
+    fontWeight: '700',
+    marginBottom: '8px',
+    color: '#f5f5f5',
+  },
+  featDesc: {
+    fontSize: '0.9rem',
+    color: '#a3a3a3',
+    lineHeight: '1.65',
+  },
+
+  // Steps
+  stepsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: '24px',
+    textAlign: 'left',
+  },
+  stepCard: {
+    background: '#141414',
+    border: '1px solid #262626',
+    borderRadius: '16px',
+    padding: '32px',
+  },
+  stepNum: {
+    fontSize: '2.5rem',
+    fontWeight: '900',
+    color: '#ff2d55',
+    opacity: 0.6,
+    marginBottom: '16px',
+    letterSpacing: '-0.04em',
+  },
+  stepTitle: {
+    fontSize: '1.1rem',
+    fontWeight: '700',
+    marginBottom: '10px',
+    color: '#f5f5f5',
+  },
+  stepDesc: {
+    fontSize: '0.9rem',
+    color: '#a3a3a3',
+    lineHeight: '1.65',
+  },
+
+  // CTA
+  ctaSection: {
+    padding: '100px 24px',
+    background: 'radial-gradient(ellipse at center, rgba(255,0,80,0.1) 0%, transparent 70%), #0a0a0a',
+    textAlign: 'center',
+  },
+  ctaInner: {
+    maxWidth: '600px',
+    margin: '0 auto',
+  },
+  ctaH2: {
+    fontSize: 'clamp(1.8rem, 3vw, 2.4rem)',
+    fontWeight: '800',
+    marginBottom: '14px',
+    letterSpacing: '-0.02em',
+  },
+  ctaSub: {
+    color: '#a3a3a3',
+    fontSize: '1.05rem',
+    marginBottom: '32px',
+  },
+  ctaLinks: {
+    marginTop: '28px',
+    fontSize: '0.85rem',
+    color: '#555',
+  },
+  footLink: {
+    color: '#666',
+    textDecoration: 'underline',
+  },
+};
